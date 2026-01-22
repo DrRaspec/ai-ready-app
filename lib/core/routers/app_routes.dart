@@ -1,0 +1,35 @@
+import 'package:ai_chat_bot/features/auth/presentation/pages/login_page.dart';
+import 'package:ai_chat_bot/features/auth/presentation/pages/register_page.dart';
+import 'package:ai_chat_bot/features/home/presentation/pages/home_page.dart';
+import 'package:go_router/go_router.dart';
+
+import 'route_names.dart';
+import 'route_paths.dart';
+import 'router_guards.dart';
+import '../../bootstrap.dart';
+import '../storage/token_storage.dart';
+
+final GoRouter appRouter = GoRouter(
+  initialLocation: RoutePaths.home,
+  redirect: (context, state) async {
+    final storage = di<TokenStorage>();
+    return await RouterGuards.authGuard(state, storage);
+  },
+  routes: [
+    GoRoute(
+      path: RoutePaths.home,
+      name: RouteNames.home,
+      builder: (context, state) => const HomePage(),
+    ),
+    GoRoute(
+      path: RoutePaths.login,
+      name: RouteNames.login,
+      builder: (context, state) => const LoginPage(),
+    ),
+    GoRoute(
+      path: RoutePaths.register,
+      name: RouteNames.register,
+      builder: (context, state) => const RegisterPage(),
+    ),
+  ],
+);

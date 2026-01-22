@@ -1,0 +1,105 @@
+import 'package:ai_chat_bot/core/errors/api_exception.dart';
+import 'package:ai_chat_bot/core/logging/app_logger.dart';
+import 'package:ai_chat_bot/core/network/api_paths.dart';
+import 'package:ai_chat_bot/core/network/dio_client.dart';
+import 'package:ai_chat_bot/features/auth/data/auth_data.dart';
+import 'package:ai_chat_bot/features/auth/data/login_request_data.dart';
+import 'package:ai_chat_bot/features/auth/data/register_request_data.dart';
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
+
+class AuthRepository {
+  final DioClient _dioClient;
+
+  AuthRepository(DioClient dioClient) : _dioClient = dioClient;
+
+  Future<ApiResponse<AuthData>> login(LoginRequestData request) async {
+    try {
+      AppLogger.i(
+        'Login request -> ${_dioClient.dio.options.baseUrl}/${ApiPaths.login}',
+      );
+      debugPrint(
+        'Login request -> ${_dioClient.dio.options.baseUrl}/${ApiPaths.login}',
+      );
+      final response = await _dioClient.dio.post(
+        ApiPaths.login,
+        data: request.toJson(),
+      );
+
+      return ApiResponse<AuthData>.fromJson(
+        response.data,
+        (json) => AuthData.fromJson(json as Map<String, dynamic>),
+      );
+    } on DioException catch (e) {
+      debugPrint(
+        'Login DioException: type=${e.type} message=${e.message} '
+        'errorType=${e.error.runtimeType} error=${e.error} '
+        'status=${e.response?.statusCode} data=${e.response?.data}',
+      );
+      AppLogger.e(
+        'Login DioException: type=${e.type} message=${e.message} '
+        'errorType=${e.error.runtimeType} error=${e.error} '
+        'status=${e.response?.statusCode}',
+        error: e.error,
+        stackTrace: e.stackTrace,
+      );
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<ApiResponse<AuthData>> register(RegisterRequestData request) async {
+    try {
+      final response = await _dioClient.dio.post(
+        ApiPaths.register,
+        data: request.toMap(),
+      );
+
+      return ApiResponse<AuthData>.fromJson(
+        response.data,
+        (json) => AuthData.fromJson(json as Map<String, dynamic>),
+      );
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<ApiResponse<AuthData>> me() async {
+    try {
+      final response = await _dioClient.dio.get(ApiPaths.me);
+
+      return ApiResponse<AuthData>.fromJson(
+        response.data,
+        (json) => AuthData.fromJson(json as Map<String, dynamic>),
+      );
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<void> logout() async {
+    try {
+      await _dioClient.dio.post(ApiPaths.logout);
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+}
+
+class ApiResponse<T> {
+  final bool success;
+  final T? data;
+  final String? message;
+
+  ApiResponse({required this.success, this.data, this.message});
+
+  factory ApiResponse.fromJson(
+    Map<String, dynamic> json,
+    T Function(Object? json) fromJsonT,
+  ) {
+    return ApiResponse<T>(
+      success: json['success'] as bool? ?? false,
+      data: json['data'] != null ? fromJsonT(json['data']) : null,
+      message: json['message'] as String?,
+    );
+  }
+}
