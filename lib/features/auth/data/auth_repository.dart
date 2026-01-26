@@ -1,4 +1,5 @@
 import 'package:ai_chat_bot/core/errors/api_exception.dart';
+import 'package:ai_chat_bot/core/device/device_id_provider.dart';
 import 'package:ai_chat_bot/core/logging/app_logger.dart';
 import 'package:ai_chat_bot/core/network/api_paths.dart';
 import 'package:ai_chat_bot/core/network/dio_client.dart';
@@ -10,8 +11,11 @@ import 'package:flutter/foundation.dart';
 
 class AuthRepository {
   final DioClient _dioClient;
+  final DeviceIdProvider _deviceIdProvider;
 
-  AuthRepository(DioClient dioClient) : _dioClient = dioClient;
+  AuthRepository(DioClient dioClient, DeviceIdProvider deviceIdProvider)
+    : _dioClient = dioClient,
+      _deviceIdProvider = deviceIdProvider;
 
   Future<ApiResponse<AuthData>> login(LoginRequestData request) async {
     try {
@@ -21,9 +25,12 @@ class AuthRepository {
       debugPrint(
         'Login request -> ${_dioClient.dio.options.baseUrl}/${ApiPaths.login}',
       );
+      final deviceId =
+          request.deviceId ?? await _deviceIdProvider.getDeviceId();
+      final payload = request.copyWith(deviceId: deviceId);
       final response = await _dioClient.dio.post(
         ApiPaths.login,
-        data: request.toJson(),
+        data: payload.toJson(),
       );
 
       return ApiResponse<AuthData>.fromJson(
@@ -49,9 +56,12 @@ class AuthRepository {
 
   Future<ApiResponse<AuthData>> register(RegisterRequestData request) async {
     try {
+      final deviceId =
+          request.deviceId ?? await _deviceIdProvider.getDeviceId();
+      final payload = request.copyWith(deviceId: deviceId);
       final response = await _dioClient.dio.post(
         ApiPaths.register,
-        data: request.toMap(),
+        data: payload.toMap(),
       );
 
       return ApiResponse<AuthData>.fromJson(
@@ -65,7 +75,7 @@ class AuthRepository {
 
   Future<ApiResponse<AuthData>> me() async {
     try {
-      final response = await _dioClient.dio.get(ApiPaths.me);
+      final response = await _dioClient.dio.post(ApiPaths.me);
 
       return ApiResponse<AuthData>.fromJson(
         response.data,

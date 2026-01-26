@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:ai_chat_bot/core/errors/api_exception.dart';
 import 'package:ai_chat_bot/core/network/api_paths.dart';
 import 'package:ai_chat_bot/core/network/dio_client.dart';
@@ -7,6 +8,7 @@ import 'package:ai_chat_bot/features/chat/data/models/chat_response.dart';
 import 'package:ai_chat_bot/features/chat/data/models/conversation.dart';
 import 'package:ai_chat_bot/features/chat/data/models/message.dart';
 import 'package:ai_chat_bot/features/chat/data/models/usage_summary.dart';
+import 'package:ai_chat_bot/features/chat/data/models/voice_chat_response.dart';
 import 'package:dio/dio.dart';
 
 class ChatRepository {
@@ -62,7 +64,27 @@ class ChatRepository {
         queryParameters: {'page': page, 'size': size},
       );
 
-      return ApiResponse<List<Conversation>>.fromJson(response.data, (json) {
+      var responseData = response.data;
+      if (responseData is String) {
+        try {
+          responseData = jsonDecode(responseData);
+        } catch (e) {
+          // responseData remains a String here if decode fails
+        }
+      }
+
+      final Map<String, dynamic> jsonMap;
+      if (responseData is Map<String, dynamic>) {
+        jsonMap = responseData;
+      } else if (responseData is Map) {
+        jsonMap = Map<String, dynamic>.from(responseData);
+      } else {
+        // If completely failed to parse or format is wrong, return empty structure or throw
+        // But to avoid crash, let's try to infer if it might be just the list
+        jsonMap = {};
+      }
+
+      return ApiResponse<List<Conversation>>.fromJson(jsonMap, (json) {
         // Handle paged response
         if (json is Map && json['content'] != null) {
           return (json['content'] as List)
@@ -102,6 +124,27 @@ class ChatRepository {
     }
   }
 
+  /// Edit a message.
+  Future<ApiResponse<ChatResponse>> editMessage(
+    String conversationId,
+    String messageId,
+    String newContent,
+  ) async {
+    try {
+      final response = await _dioClient.dio.put(
+        ApiPaths.editMessage(conversationId, messageId),
+        data: {'message': newContent},
+      );
+
+      return ApiResponse<ChatResponse>.fromJson(
+        response.data,
+        (json) => ChatResponse.fromJson(json as Map<String, dynamic>),
+      );
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
   /// Rename a conversation.
   Future<ApiResponse<void>> renameConversation(
     String conversationId,
@@ -110,7 +153,7 @@ class ChatRepository {
     try {
       final response = await _dioClient.dio.patch(
         ApiPaths.conversation(conversationId),
-        queryParameters: {'title': newTitle},
+        data: {'title': newTitle},
       );
 
       return ApiResponse<void>.fromJson(response.data, (_) {});
@@ -127,6 +170,33 @@ class ChatRepository {
       );
 
       return ApiResponse<void>.fromJson(response.data, (_) {});
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  /// Send voice message.
+  Future<ApiResponse<VoiceChatResponse>> sendVoiceMessage({
+    required String filePath,
+    String? conversationId,
+    String? language,
+  }) async {
+    try {
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(filePath),
+        if (conversationId != null) 'conversationId': conversationId,
+        if (language != null) 'language': language,
+      });
+
+      final response = await _dioClient.dio.post(
+        ApiPaths.voiceChat,
+        data: formData,
+      );
+
+      return ApiResponse<VoiceChatResponse>.fromJson(
+        response.data,
+        (json) => VoiceChatResponse.fromJson(json as Map<String, dynamic>),
+      );
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:ai_chat_bot/core/config/env_config.dart';
+import 'package:ai_chat_bot/core/device/device_id_provider.dart';
 import 'package:ai_chat_bot/core/errors/api_exception.dart';
 import 'package:ai_chat_bot/core/logging/app_logger.dart';
 import 'package:ai_chat_bot/core/network/api_paths.dart';
@@ -12,12 +13,17 @@ import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 class DioClient {
   late final Dio dio;
   final TokenStorage _tokenStorage;
+  final DeviceIdProvider _deviceIdProvider;
   final Function()? onUnauthorized;
 
   Future<void>? _refreshFuture;
 
-  DioClient({required TokenStorage tokenStorage, this.onUnauthorized})
-    : _tokenStorage = tokenStorage {
+  DioClient({
+    required TokenStorage tokenStorage,
+    required DeviceIdProvider deviceIdProvider,
+    this.onUnauthorized,
+  }) : _tokenStorage = tokenStorage,
+       _deviceIdProvider = deviceIdProvider {
     dio = Dio(
       BaseOptions(
         baseUrl: EnvConfig.apiBaseUrl,
@@ -158,7 +164,10 @@ class DioClient {
       // Direct refresh call to avoid circular dependency
       final response = await dio.post(
         ApiPaths.refreshToken,
-        data: {'refreshToken': refreshToken},
+        data: {
+          'refreshToken': refreshToken,
+          'deviceId': await _deviceIdProvider.getDeviceId(),
+        },
       );
 
       final data = response.data;

@@ -54,6 +54,7 @@ class _RegisterPageState extends State<RegisterPage> {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
+      appBar: AppBar(leading: BackButton(onPressed: () => context.pop())),
       body: SafeArea(
         child: BlocConsumer<AuthBloc, AuthState>(
           listener: (context, state) {
@@ -62,66 +63,109 @@ class _RegisterPageState extends State<RegisterPage> {
                 SnackBar(
                   content: Text(state.message),
                   backgroundColor: colorScheme.error,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
               );
             } else if (state is Authenticated) {
-              context.goNamed(RouteNames.home);
+              context.goNamed(RouteNames.conversations);
             }
           },
           builder: (context, state) {
             final isLoading = state is AuthFormLoading;
 
-            return SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+            return Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 16,
+                ),
                 child: Form(
                   key: _formKey,
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const SizedBox(height: 46),
+                      Center(
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: colorScheme.primaryContainer.withValues(
+                              alpha: 0.3,
+                            ),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.person_add_alt_1_rounded,
+                            size: 40,
+                            color: colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
                       Text(
-                        'Create account',
-                        style: theme.textTheme.headlineMedium?.copyWith(
+                        'Create Account',
+                        style: theme.textTheme.displaySmall?.copyWith(
                           fontWeight: FontWeight.bold,
                           color: colorScheme.onSurface,
                         ),
+                        textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 32),
-                      AppTextField(
-                        controller: _firstNameController,
-                        hintText: 'First name',
-                        keyboardType: TextInputType.name,
-                        textInputAction: TextInputAction.next,
-                        enabled: !isLoading,
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Please enter your first name';
-                          }
-                          return null;
-                        },
+                      const SizedBox(height: 8),
+                      Text(
+                        'Join us to start chatting',
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 40),
+
+                      Row(
+                        children: [
+                          Expanded(
+                            child: AppTextField(
+                              controller: _firstNameController,
+                              hintText: 'First Name',
+                              keyboardType: TextInputType.name,
+                              textInputAction: TextInputAction.next,
+                              enabled: !isLoading,
+                              validator: (value) {
+                                if (value == null || value.trim().isEmpty) {
+                                  return 'Required';
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: AppTextField(
+                              controller: _lastNameController,
+                              hintText: 'Last Name',
+                              keyboardType: TextInputType.name,
+                              textInputAction: TextInputAction.next,
+                              enabled: !isLoading,
+                              validator: (value) {
+                                if (value == null || value.trim().isEmpty) {
+                                  return 'Required';
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 16),
-                      AppTextField(
-                        controller: _lastNameController,
-                        hintText: 'Last name',
-                        keyboardType: TextInputType.name,
-                        textInputAction: TextInputAction.next,
-                        enabled: !isLoading,
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Please enter your last name';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
+
                       AppTextField(
                         controller: _emailController,
                         hintText: 'Email address',
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,
                         enabled: !isLoading,
+                        prefixIcon: const Icon(Icons.email_outlined),
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
                             return 'Please enter your email';
@@ -135,18 +179,20 @@ class _RegisterPageState extends State<RegisterPage> {
                         },
                       ),
                       const SizedBox(height: 16),
+
                       AppTextField(
                         controller: _passwordController,
                         hintText: 'Password',
                         obscureText: _obscurePassword,
                         textInputAction: TextInputAction.next,
                         enabled: !isLoading,
+                        prefixIcon: const Icon(Icons.lock_outline),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return 'Please enter a password';
                           }
                           if (value.length < 8) {
-                            return 'Password must be at least 8 characters';
+                            return 'Min 8 characters';
                           }
                           return null;
                         },
@@ -155,7 +201,7 @@ class _RegisterPageState extends State<RegisterPage> {
                             _obscurePassword
                                 ? Icons.visibility_off_outlined
                                 : Icons.visibility_outlined,
-                            color: colorScheme.onSurface.withValues(alpha: 0.6),
+                            color: colorScheme.onSurfaceVariant,
                           ),
                           onPressed: () {
                             setState(() {
@@ -165,15 +211,17 @@ class _RegisterPageState extends State<RegisterPage> {
                         ),
                       ),
                       const SizedBox(height: 16),
+
                       AppTextField(
                         controller: _confirmPasswordController,
-                        hintText: 'Confirm password',
+                        hintText: 'Confirm Password',
                         obscureText: _obscureConfirmPassword,
                         textInputAction: TextInputAction.done,
                         enabled: !isLoading,
+                        prefixIcon: const Icon(Icons.lock_clock_outlined),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Please confirm your password';
+                            return 'Please confirm password';
                           }
                           if (value != _passwordController.text) {
                             return 'Passwords do not match';
@@ -186,7 +234,7 @@ class _RegisterPageState extends State<RegisterPage> {
                             _obscureConfirmPassword
                                 ? Icons.visibility_off_outlined
                                 : Icons.visibility_outlined,
-                            color: colorScheme.onSurface.withValues(alpha: 0.6),
+                            color: colorScheme.onSurfaceVariant,
                           ),
                           onPressed: () {
                             setState(() {
@@ -196,162 +244,40 @@ class _RegisterPageState extends State<RegisterPage> {
                           },
                         ),
                       ),
-                      const SizedBox(height: 24),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: ElevatedButton(
-                          onPressed: isLoading ? null : _handleRegister,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: colorScheme.primary,
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: isLoading
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white,
-                                    ),
-                                  ),
-                                )
-                              : const Text(
-                                  'Create account',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+
+                      const SizedBox(height: 32),
+
+                      ElevatedButton(
+                        onPressed: isLoading ? null : _handleRegister,
+                        child: isLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
                                 ),
-                        ),
+                              )
+                            : const Text('Create Account'),
                       ),
-                      const SizedBox(height: 24),
+
+                      const SizedBox(height: 32),
+
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Expanded(
-                            child: Divider(
-                              color: colorScheme.onSurface.withValues(
-                                alpha: 0.2,
-                              ),
+                          Text(
+                            'Already have an account? ',
+                            style: TextStyle(
+                              color: colorScheme.onSurfaceVariant,
                             ),
                           ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: Text(
-                              'OR',
-                              style: TextStyle(
-                                color: colorScheme.onSurface.withValues(
-                                  alpha: 0.6,
-                                ),
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: Divider(
-                              color: colorScheme.onSurface.withValues(
-                                alpha: 0.2,
-                              ),
-                            ),
+                          TextButton(
+                            onPressed: isLoading ? null : () => context.pop(),
+                            child: const Text('Sign In'),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 24),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: OutlinedButton.icon(
-                          onPressed: isLoading ? null : () {},
-                          icon: Image.network(
-                            'https://www.google.com/favicon.ico',
-                            width: 20,
-                            height: 20,
-                          ),
-                          label: Text(
-                            'Continue with Google',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              color: colorScheme.onSurface,
-                            ),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            side: BorderSide(
-                              color: colorScheme.onSurface.withValues(
-                                alpha: 0.2,
-                              ),
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: OutlinedButton.icon(
-                          onPressed: isLoading ? null : () {},
-                          icon: Icon(
-                            Icons.apple,
-                            color: colorScheme.onSurface,
-                            size: 24,
-                          ),
-                          label: Text(
-                            'Continue with Apple',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              color: colorScheme.onSurface,
-                            ),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            side: BorderSide(
-                              color: colorScheme.onSurface.withValues(
-                                alpha: 0.2,
-                              ),
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-                      Center(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Already have an account? ',
-                              style: TextStyle(
-                                color: colorScheme.onSurface.withValues(
-                                  alpha: 0.6,
-                                ),
-                                fontSize: 15,
-                              ),
-                            ),
-                            GestureDetector(
-                              onTap: isLoading ? null : () => context.pop(),
-                              child: Text(
-                                'Sign in',
-                                style: TextStyle(
-                                  color: colorScheme.primary,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
                     ],
                   ),
                 ),

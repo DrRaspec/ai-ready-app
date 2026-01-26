@@ -14,6 +14,10 @@ class ChatState extends Equatable {
   final UsageSummary? usage;
   final String? errorMessage;
 
+  // Media & Modes
+  final String? attachedImagePath;
+  final dynamic chatMode; // ChatMode enum
+
   const ChatState({
     this.status = ChatStatus.initial,
     this.conversations = const [],
@@ -22,6 +26,8 @@ class ChatState extends Equatable {
     this.isSending = false,
     this.usage,
     this.errorMessage,
+    this.attachedImagePath,
+    this.chatMode,
   });
 
   bool get isLoading => status == ChatStatus.loading;
@@ -46,6 +52,9 @@ class ChatState extends Equatable {
     UsageSummary? usage,
     String? errorMessage,
     bool clearError = false,
+    String? attachedImagePath,
+    bool clearAttachedImage = false,
+    dynamic chatMode,
   }) {
     return ChatState(
       status: status ?? this.status,
@@ -57,6 +66,10 @@ class ChatState extends Equatable {
       isSending: isSending ?? this.isSending,
       usage: usage ?? this.usage,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      attachedImagePath: clearAttachedImage
+          ? null
+          : (attachedImagePath ?? this.attachedImagePath),
+      chatMode: chatMode ?? this.chatMode,
     );
   }
 
@@ -69,5 +82,7 @@ class ChatState extends Equatable {
     isSending,
     usage,
     errorMessage,
+    attachedImagePath,
+    chatMode,
   ];
 }

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 
 class ApiException implements Exception {
@@ -24,17 +26,36 @@ class ApiException implements Exception {
         );
       case DioExceptionType.badResponse:
         final response = e.response;
-        final data = response?.data;
-        
+        var data = response?.data;
+
+        // If the server returned a JSON string, try to parse it
+        if (data is String) {
+          try {
+            data = data.isNotEmpty ? Map<String, dynamic>.from(json.decode(data) as Map) : null;
+          } catch (_) {
+            data = null;
+          }
+        }
+
         if (data is Map<String, dynamic>) {
+          final message = (data['message'] as String?) ?? (data['error'] as String?) ?? '';
+          Map<String, dynamic>? details;
+          if (data['details'] is Map<String, dynamic>) {
+            details = data['details'] as Map<String, dynamic>;
+          } else if (data['details'] is List) {
+            // Convert list of errors to a map with numeric keys
+            final list = data['details'] as List;
+            details = {for (var i = 0; i < list.length; i++) i.toString(): list[i]};
+          }
+
           return ApiException(
-            message: data['message'] as String? ?? 'Server error occurred',
+            message: message.isNotEmpty ? message : 'Server error occurred',
             status: response?.statusCode,
             error: data['error'] as String?,
-            details: data['details'] as Map<String, dynamic>?,
+            details: details,
           );
         }
-        
+
         return ApiException(
           message: 'Server error occurred',
           status: response?.statusCode,
@@ -62,6 +83,11 @@ class ApiException implements Exception {
       'ApiException(status: $status, message: $message, error: $error)';
 
   String getDetailedMessage() {
+    // Prefer server-provided message when available and not generic.
+    if (message.isNotEmpty && message != 'Server error occurred') {
+      return message;
+    }
+
     if (details != null && details!.isNotEmpty) {
       final firstError = details!.values.first;
       if (firstError is String) {
@@ -70,6 +96,7 @@ class ApiException implements Exception {
         return firstError.first.toString();
       }
     }
+
     return message;
   }
 }

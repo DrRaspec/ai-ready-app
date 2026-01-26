@@ -3,13 +3,13 @@ import 'package:ai_chat_bot/features/auth/presentation/pages/register_page.dart'
 import 'package:ai_chat_bot/features/chat/presentation/pages/conversations_page.dart';
 import 'package:ai_chat_bot/features/chat/presentation/pages/chat_page.dart';
 import 'package:ai_chat_bot/features/chat/presentation/pages/usage_page.dart';
-import 'package:ai_chat_bot/features/home/presentation/pages/home_page.dart';
+import 'package:ai_chat_bot/features/profile/presentation/profile_screen.dart';
 import 'package:go_router/go_router.dart';
 
 import 'route_names.dart';
 import 'route_paths.dart';
 import 'router_guards.dart';
-import '../../bootstrap.dart';
+import '../di/dependency_injection.dart';
 import '../storage/token_storage.dart';
 
 final GoRouter appRouter = GoRouter(
@@ -22,7 +22,7 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: RoutePaths.home,
       name: RouteNames.home,
-      builder: (context, state) => const HomePage(),
+      redirect: (context, state) => RoutePaths.conversations,
     ),
     GoRoute(
       path: RoutePaths.login,
@@ -48,6 +48,11 @@ final GoRouter appRouter = GoRouter(
       path: RoutePaths.usage,
       name: RouteNames.usage,
       builder: (context, state) => const UsagePage(),
+    ),
+    GoRoute(
+      path: RoutePaths.profile,
+      name: RouteNames.profile,
+      builder: (context, state) => const ProfileScreen(),
     ),
   ],
 );

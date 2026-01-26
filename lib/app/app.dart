@@ -1,4 +1,4 @@
-import 'package:ai_chat_bot/bootstrap.dart';
+import 'package:ai_chat_bot/core/di/dependency_injection.dart';
 import 'package:ai_chat_bot/core/theme/theme_state.dart';
 import 'package:ai_chat_bot/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:ai_chat_bot/features/chat/data/chat_repository.dart';

@@ -42,4 +42,20 @@ class Message {
     content: content,
     createdAt: DateTime.now(),
   );
+
+  Message copyWith({
+    String? id,
+    String? role,
+    String? content,
+    String? imageUrl,
+    DateTime? createdAt,
+  }) {
+    return Message(
+      id: id ?? this.id,
+      role: role ?? this.role,
+      content: content ?? this.content,
+      imageUrl: imageUrl ?? this.imageUrl,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
 }

@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:bloc/bloc.dart';
 import 'package:ai_chat_bot/core/errors/api_exception.dart';
 import 'package:ai_chat_bot/features/chat/data/chat_repository.dart';
@@ -19,6 +21,110 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<RenameConversation>(_onRenameConversation);
     on<DeleteConversation>(_onDeleteConversation);
     on<LoadUsage>(_onLoadUsage);
+    on<AttachImage>(_onAttachImage);
+    on<DetachImage>(_onDetachImage);
+    on<SetChatMode>(_onSetChatMode);
+    on<VoiceMessageSent>(_onVoiceMessageSent);
+    on<EditMessage>(_onEditMessage);
+  }
+
+  Future<void> _onEditMessage(
+    EditMessage event,
+    Emitter<ChatState> emit,
+  ) async {
+    if (state.currentConversationId == null) return;
+
+    // Optimistic update
+    final updatedMessages = state.messages.map((m) {
+      if (m.id == event.messageId) {
+        return m.copyWith(content: event.newContent);
+      }
+      return m;
+    }).toList();
+
+    emit(state.copyWith(messages: updatedMessages));
+
+    try {
+      final response = await _repository.editMessage(
+        state.currentConversationId!,
+        event.messageId,
+        event.newContent,
+      );
+
+      if (!response.success) {
+        // Revert on failure (reload messages)
+        add(SelectConversation(state.currentConversationId!));
+        emit(
+          state.copyWith(
+            errorMessage: response.message ?? 'Failed to edit message',
+          ),
+        );
+      }
+    } on ApiException catch (e) {
+      // Revert on failure
+      add(SelectConversation(state.currentConversationId!));
+      emit(state.copyWith(errorMessage: e.message));
+    }
+  }
+
+  void _onAttachImage(AttachImage event, Emitter<ChatState> emit) {
+    emit(state.copyWith(attachedImagePath: event.path));
+  }
+
+  void _onDetachImage(DetachImage event, Emitter<ChatState> emit) {
+    emit(state.copyWith(clearAttachedImage: true));
+  }
+
+  void _onSetChatMode(SetChatMode event, Emitter<ChatState> emit) {
+    emit(state.copyWith(chatMode: event.mode));
+  }
+
+  Future<void> _onVoiceMessageSent(
+    VoiceMessageSent event,
+    Emitter<ChatState> emit,
+  ) async {
+    emit(state.copyWith(isSending: true, clearError: true));
+
+    try {
+      final response = await _repository.sendVoiceMessage(
+        filePath: event.path,
+        conversationId: state.currentConversationId,
+        language: event.language,
+      );
+
+      if (response.success && response.data != null) {
+        final voiceResponse = response.data!;
+
+        final userMessage = Message.userLocal(voiceResponse.userText);
+        final assistantMessage = Message.assistantLocal(
+          voiceResponse.aiText,
+        ); // Note: Audio not yet handled in Message model
+
+        // We probably want to play the audio response automatically or show a player
+        // For now, let's just show the text transcriptions
+
+        final updatedMessages = [
+          ...state.messages,
+          userMessage,
+          assistantMessage,
+        ];
+
+        emit(
+          state.copyWith(
+            messages: updatedMessages,
+            currentConversationId:
+                voiceResponse.conversationId ?? state.currentConversationId,
+            isSending: false,
+          ),
+        );
+
+        add(const LoadConversations());
+      } else {
+        emit(state.copyWith(isSending: false, errorMessage: response.message));
+      }
+    } on ApiException catch (e) {
+      emit(state.copyWith(isSending: false, errorMessage: e.message));
+    }
   }
 
   Future<void> _onLoadConversations(
@@ -106,10 +212,18 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     try {
       final request = ChatRequest(
         message: event.message,
-        systemPrompt: event.systemPrompt,
+        systemPrompt: event.systemPrompt ?? (state.chatMode?.systemPrompt),
         model: event.model,
         temperature: event.temperature,
+        imageBase64: state.attachedImagePath != null
+            ? base64Encode(await File(state.attachedImagePath!).readAsBytes())
+            : null,
       );
+
+      // Clear attachment after sending
+      if (state.attachedImagePath != null) {
+        add(const DetachImage());
+      }
 
       final response = event.conversationId != null
           ? await _repository.sendMessageToConversation(

@@ -5,4 +5,5 @@ class RouteNames {
   static const conversations = 'conversations';
   static const chat = 'chat';
   static const usage = 'usage';
+  static const profile = 'profile';
 }

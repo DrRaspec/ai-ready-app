@@ -61,7 +61,6 @@ class AppTextField extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
 
     Widget? buildPrefixIcon() {
       if (prefixIcon != null) return prefixIcon;
@@ -77,7 +76,7 @@ class AppTextField extends StatelessWidget {
               colorFilter: prefixSvgColor != null
                   ? ColorFilter.mode(prefixSvgColor!, BlendMode.srcIn)
                   : ColorFilter.mode(
-                      colorScheme.onSurface.withOpacity(0.6),
+                      colorScheme.onSurface.withValues(alpha: 0.6),
                       BlendMode.srcIn,
                     ),
             ),
@@ -101,7 +100,7 @@ class AppTextField extends StatelessWidget {
               colorFilter: suffixSvgColor != null
                   ? ColorFilter.mode(suffixSvgColor!, BlendMode.srcIn)
                   : ColorFilter.mode(
-                      colorScheme.onSurface.withOpacity(0.6),
+                      colorScheme.onSurface.withValues(alpha: 0.6),
                       BlendMode.srcIn,
                     ),
             ),
@@ -128,45 +127,10 @@ class AppTextField extends StatelessWidget {
       decoration: InputDecoration(
         hintText: hintText,
         labelText: labelText,
-        hintStyle: TextStyle(
-          color: colorScheme.onSurface.withOpacity(0.4),
-          fontSize: 16,
-        ),
-        labelStyle: TextStyle(
-          color: colorScheme.onSurface.withOpacity(0.6),
-          fontSize: 14,
-        ),
-        filled: true,
-        fillColor: isDark
-            ? colorScheme.surface
-            : colorScheme.onSurface.withOpacity(0.05),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: colorScheme.primary, width: 2),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: colorScheme.error, width: 1),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: colorScheme.error, width: 2),
-        ),
-        disabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
+        // Allow theme to handle styling
         contentPadding:
             contentPadding ??
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         prefixIcon: buildPrefixIcon(),
         suffixIcon: buildSuffixIcon(),
       ),

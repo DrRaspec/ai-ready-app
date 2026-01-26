@@ -20,6 +20,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AppStarted>(_onAppStarted);
     on<LoginFormSubmitted>(_onLoginFormSubmitted);
     on<RegisterFormSubmitted>(_onRegisterFormSubmitted);
+    on<LogoutRequested>(_onLogoutRequested);
   }
 
   Future<void> _onAppStarted(AppStarted event, Emitter<AuthState> emit) async {
@@ -61,7 +62,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         );
         emit(Authenticated(response.data!));
       } else {
-        emit(const AuthError('Login failed'));
+        emit(AuthError(response.message ?? 'Login failed'));
       }
     } on ApiException catch (e) {
       // Network or connection errors
@@ -87,7 +88,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         );
         emit(Authenticated(response.data!));
       } else {
-        emit(const AuthError('Registration failed'));
+        emit(AuthError(response.message ?? 'Registration failed'));
       }
     } on ApiException catch (e) {
       AppLogger.e(e.toString());
@@ -96,6 +97,21 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     } catch (e) {
       AppLogger.e(e.toString());
       emit(AuthError('An unexpected error occurred'));
+    }
+  }
+
+  Future<void> _onLogoutRequested(
+    LogoutRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    try {
+      await authRepository.logout();
+    } catch (e) {
+      // Ignore errors during logout
+      AppLogger.e('Logout error: $e');
+    } finally {
+      await tokenStorage.clear();
+      emit(Unauthenticated());
     }
   }
 }

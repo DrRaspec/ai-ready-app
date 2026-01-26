@@ -1,9 +1,9 @@
 class ApiResponse<T> {
   final bool success;
-  final String message;
+  final String? message;
   final T? data;
   final int status;
-  final String path;
+  final String? path;
   final String? error;
   final Map<String, dynamic>? details;
 
@@ -11,7 +11,7 @@ class ApiResponse<T> {
     required this.success,
     required this.message,
     required this.status,
-    required this.path,
+    this.path,
     this.data,
     this.error,
     this.details,
@@ -22,9 +22,9 @@ class ApiResponse<T> {
     T Function(dynamic json)? fromJsonT,
   ) {
     return ApiResponse<T>(
-      success: json['success'],
-      message: json['message'],
-      status: json['status'],
+      success: json['success'] ?? false,
+      message: json['message'] ?? '',
+      status: json['status'] ?? 500,
       path: json['path'],
       error: json['error'],
       details: json['details'],
@@ -43,6 +43,6 @@ class ApiResponse<T> {
         return firstError.first.toString();
       }
     }
-    return message;
+    return message ?? 'Something went wrong';
   }
 }

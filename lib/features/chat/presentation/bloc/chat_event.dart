@@ -84,3 +84,44 @@ class DeleteConversation extends ChatEvent {
 class LoadUsage extends ChatEvent {
   const LoadUsage();
 }
+
+/// Attach an image (from photo_manager AssetEntity).
+class AttachImage extends ChatEvent {
+  final String path;
+
+  const AttachImage(this.path);
+
+  @override
+  List<Object?> get props => [path];
+}
+
+class DetachImage extends ChatEvent {
+  const DetachImage();
+}
+
+class SetChatMode extends ChatEvent {
+  final dynamic mode; // Will be ChatMode
+  const SetChatMode(this.mode);
+  @override
+  List<Object?> get props => [mode];
+}
+
+class VoiceMessageSent extends ChatEvent {
+  final String path;
+  final String? language;
+
+  const VoiceMessageSent(this.path, {this.language});
+
+  @override
+  List<Object?> get props => [path, language];
+}
+
+class EditMessage extends ChatEvent {
+  final String messageId;
+  final String newContent;
+
+  const EditMessage(this.messageId, this.newContent);
+
+  @override
+  List<Object?> get props => [messageId, newContent];
+}

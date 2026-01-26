@@ -10,8 +10,9 @@ class ApiPaths {
   static const String me = '$auth/me';
 
   // AI Chat
-  static const String ai = '/ai';
+  static const String ai = '$apiVersion/ai';
   static const String chat = '$ai/chat';
+  static const String voiceChat = '$ai/voice-chat';
   static String chatWithConversation(String conversationId) =>
       '$ai/chat/$conversationId';
 
@@ -21,6 +22,8 @@ class ApiPaths {
       '$ai/conversations/$conversationId/messages';
   static String conversation(String conversationId) =>
       '$ai/conversations/$conversationId';
+  static String editMessage(String conversationId, String messageId) =>
+      '$ai/conversations/$conversationId/messages/$messageId';
 
   // Usage
   static const String usage = '$ai/usage';
