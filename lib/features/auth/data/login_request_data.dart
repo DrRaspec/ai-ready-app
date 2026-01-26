@@ -2,12 +2,12 @@ class LoginRequestData {
   const LoginRequestData({
     required this.email,
     required this.password,
-    required this.deviceId,
+    this.deviceId,
   });
 
   final String email;
   final String password;
-  final String deviceId;
+  final String? deviceId;
 
   Map<String, dynamic> toJson() {
     return {'email': email, 'password': password, 'deviceId': deviceId};

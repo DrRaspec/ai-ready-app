@@ -2,4 +2,7 @@ class RouteNames {
   static const home = 'home';
   static const login = 'login';
   static const register = 'register';
+  static const conversations = 'conversations';
+  static const chat = 'chat';
+  static const usage = 'usage';
 }

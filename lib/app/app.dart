@@ -1,6 +1,8 @@
 import 'package:ai_chat_bot/bootstrap.dart';
 import 'package:ai_chat_bot/core/theme/theme_state.dart';
 import 'package:ai_chat_bot/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:ai_chat_bot/features/chat/data/chat_repository.dart';
+import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -24,6 +26,7 @@ class App extends StatelessWidget {
             authRepository: di<AuthRepository>(),
           )..add(AppStarted()),
         ),
+        BlocProvider(create: (_) => ChatBloc(di<ChatRepository>())),
       ],
       child: BlocBuilder<ThemeCubit, ThemeState>(
         builder: (context, state) {

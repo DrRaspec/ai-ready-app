@@ -22,7 +22,7 @@ class RouterGuards {
 
     if (isLoggedIn &&
         (location == RoutePaths.login || location == RoutePaths.register)) {
-      return RoutePaths.home;
+      return RoutePaths.conversations;
     }
 
     return null;
