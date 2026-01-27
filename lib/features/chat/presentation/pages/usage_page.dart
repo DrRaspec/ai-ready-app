@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_event.dart';
 import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_state.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 class UsagePage extends StatefulWidget {
   const UsagePage({super.key});
@@ -27,7 +28,37 @@ class _UsagePageState extends State<UsagePage> {
           final usage = state.usage;
 
           if (usage == null) {
-            return const Center(child: CircularProgressIndicator());
+            return Skeletonizer(
+              enabled: true,
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: const [
+                  _UsageCard(
+                    title: 'Today',
+                    tokens: 1560,
+                    requests: 42,
+                    icon: Icons.today,
+                    color: Colors.blue,
+                  ),
+                  SizedBox(height: 16),
+                  _UsageCard(
+                    title: 'This Week',
+                    tokens: 12500,
+                    requests: 350,
+                    icon: Icons.date_range,
+                    color: Colors.green,
+                  ),
+                  SizedBox(height: 16),
+                  _UsageCard(
+                    title: 'This Month',
+                    tokens: 45000,
+                    requests: 1200,
+                    icon: Icons.calendar_month,
+                    color: Colors.orange,
+                  ),
+                ],
+              ),
+            );
           }
 
           return RefreshIndicator(

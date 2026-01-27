@@ -28,7 +28,6 @@ class ApiException implements Exception {
         final response = e.response;
         var data = response?.data;
 
-        // If the server returned a JSON string, try to parse it
         if (data is String) {
           try {
             data = data.isNotEmpty ? Map<String, dynamic>.from(json.decode(data) as Map) : null;
@@ -83,7 +82,6 @@ class ApiException implements Exception {
       'ApiException(status: $status, message: $message, error: $error)';
 
   String getDetailedMessage() {
-    // Prefer server-provided message when available and not generic.
     if (message.isNotEmpty && message != 'Server error occurred') {
       return message;
     }

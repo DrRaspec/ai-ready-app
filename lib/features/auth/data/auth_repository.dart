@@ -93,6 +93,63 @@ class AuthRepository {
       throw ApiException.fromDioException(e);
     }
   }
+
+  /// Get user profile
+  Future<ApiResponse<AuthData>> getProfile() async {
+    try {
+      final response = await _dioClient.dio.get(ApiPaths.profile);
+
+      return ApiResponse<AuthData>.fromJson(
+        response.data,
+        (json) => AuthData.fromJson(json as Map<String, dynamic>),
+      );
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  /// Update user profile (firstName, lastName)
+  Future<ApiResponse<AuthData>> updateProfile({
+    String? firstName,
+    String? lastName,
+  }) async {
+    try {
+      final data = <String, dynamic>{};
+      if (firstName != null) data['firstName'] = firstName;
+      if (lastName != null) data['lastName'] = lastName;
+
+      final response = await _dioClient.dio.put(ApiPaths.profile, data: data);
+
+      return ApiResponse<AuthData>.fromJson(
+        response.data,
+        (json) => AuthData.fromJson(json as Map<String, dynamic>),
+      );
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  /// Upload profile picture
+  Future<ApiResponse<AuthData>> uploadProfilePicture(String filePath) async {
+    try {
+      final fileName = filePath.split('/').last;
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(filePath, filename: fileName),
+      });
+
+      final response = await _dioClient.dio.post(
+        ApiPaths.profilePicture,
+        data: formData,
+      );
+
+      return ApiResponse<AuthData>.fromJson(
+        response.data,
+        (json) => AuthData.fromJson(json as Map<String, dynamic>),
+      );
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
 }
 
 class ApiResponse<T> {

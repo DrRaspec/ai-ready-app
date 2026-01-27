@@ -7,6 +7,7 @@ import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_event.dart';
 import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_state.dart';
 import 'package:ai_chat_bot/features/chat/data/models/conversation.dart';
 import 'package:go_router/go_router.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 class ConversationsPage extends StatefulWidget {
   const ConversationsPage({super.key});
@@ -38,7 +39,42 @@ class _ConversationsPageState extends State<ConversationsPage> {
       body: BlocBuilder<ChatBloc, ChatState>(
         builder: (context, state) {
           if (state.isLoading && state.conversations.isEmpty) {
-            return const Center(child: CircularProgressIndicator());
+            // Fake data for skeleton loading
+            final fakeConversations = List.generate(
+              6,
+              (index) => Conversation(
+                id: 'fake_$index',
+                title: 'Loading conversation title...',
+                createdAt: DateTime.now(),
+                updatedAt: DateTime.now(),
+                messageCount: 5,
+              ),
+            );
+
+            return Skeletonizer(
+              enabled: true,
+              child: CustomScrollView(
+                physics: const NeverScrollableScrollPhysics(),
+                slivers: [
+                  SliverPadding(
+                    padding: const EdgeInsets.all(16),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _ConversationCard(
+                            conversation: fakeConversations[index],
+                            onTap: () {},
+                            onDelete: () {},
+                            onRename: () {},
+                          ),
+                        );
+                      }, childCount: fakeConversations.length),
+                    ),
+                  ),
+                ],
+              ),
+            );
           }
 
           if (state.conversations.isEmpty) {

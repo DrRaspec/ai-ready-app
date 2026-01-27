@@ -3,23 +3,37 @@ import 'package:ai_chat_bot/core/theme/theme_state.dart';
 import 'package:ai_chat_bot/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:ai_chat_bot/features/chat/data/chat_repository.dart';
 import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_bloc.dart';
+import 'package:ai_chat_bot/features/profile/presentation/bloc/profile_cubit.dart';
+import 'package:ai_chat_bot/features/bookmarks/presentation/bloc/bookmarks_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../core/theme/app_theme.dart';
 import '../core/theme/theme_cubit.dart';
+import '../features/settings/presentation/bloc/settings_cubit.dart';
+import '../features/settings/presentation/bloc/settings_state.dart';
 import '../core/routers/app_routes.dart';
 import '../core/storage/token_storage.dart';
 import '../features/auth/data/auth_repository.dart';
 
 class App extends StatelessWidget {
-  const App({super.key});
+  final ThemeMode initialTheme;
+  final SettingsState? initialSettings;
+
+  const App({
+    super.key,
+    this.initialTheme = ThemeMode.system,
+    this.initialSettings,
+  });
 
   @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        BlocProvider(create: (_) => ThemeCubit()),
+        BlocProvider(create: (_) => ThemeCubit(initialTheme: initialTheme)),
+        BlocProvider(
+          create: (_) => SettingsCubit(initialState: initialSettings),
+        ),
         BlocProvider(
           create: (_) => AuthBloc(
             tokenStorage: di<TokenStorage>(),
@@ -27,15 +41,32 @@ class App extends StatelessWidget {
           )..add(AppStarted()),
         ),
         BlocProvider(create: (_) => ChatBloc(di<ChatRepository>())),
+        BlocProvider(create: (_) => ProfileCubit(di<AuthRepository>())),
+        BlocProvider(create: (_) => BookmarksCubit()..loadBookmarks()),
       ],
       child: BlocBuilder<ThemeCubit, ThemeState>(
-        builder: (context, state) {
-          return MaterialApp.router(
-            debugShowCheckedModeBanner: false,
-            theme: AppTheme.light(),
-            darkTheme: AppTheme.dark(),
-            themeMode: state.mode,
-            routerConfig: appRouter,
+        builder: (context, themeState) {
+          return BlocBuilder<SettingsCubit, SettingsState>(
+            builder: (context, settingsState) {
+              return MaterialApp.router(
+                debugShowCheckedModeBanner: false,
+                theme: AppTheme.light(fontFamily: settingsState.fontFamily),
+                darkTheme: AppTheme.dark(fontFamily: settingsState.fontFamily),
+                themeMode: themeState.mode,
+                routerConfig: appRouter,
+                builder: (context, child) {
+                  final mediaQuery = MediaQuery.of(context);
+                  return MediaQuery(
+                    data: mediaQuery.copyWith(
+                      textScaler: TextScaler.linear(
+                        settingsState.textScaleFactor,
+                      ),
+                    ),
+                    child: child!,
+                  );
+                },
+              );
+            },
           );
         },
       ),

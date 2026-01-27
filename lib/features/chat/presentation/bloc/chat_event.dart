@@ -106,16 +106,6 @@ class SetChatMode extends ChatEvent {
   List<Object?> get props => [mode];
 }
 
-class VoiceMessageSent extends ChatEvent {
-  final String path;
-  final String? language;
-
-  const VoiceMessageSent(this.path, {this.language});
-
-  @override
-  List<Object?> get props => [path, language];
-}
-
 class EditMessage extends ChatEvent {
   final String messageId;
   final String newContent;

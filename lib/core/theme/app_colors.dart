@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 class AppColors {
   // Brand / Primary
-  // Using a Deep Indigo/Purple base for a premium "AI" feel
   static const primary = Color(0xFF6366F1); // Indigo 500
   static const primaryDark = Color(0xFF4338CA); // Indigo 700
   static const secondary = Color(0xFFEC4899); // Pink 500 (Accents)

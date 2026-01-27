@@ -6,6 +6,7 @@ import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:photo_manager/photo_manager.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 import 'photo_picker_sheet.dart';
 
 class MediaSheet extends StatefulWidget {
@@ -138,7 +139,28 @@ class _MediaSheetState extends State<MediaSheet> {
           SizedBox(
             height: 120,
             child: _isLoadingImages
-                ? const Center(child: CircularProgressIndicator())
+                ? Skeletonizer(
+                    enabled: true,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: 5,
+                      itemBuilder: (context, index) {
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: AspectRatio(
+                            aspectRatio: 1,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.grey[300],
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  )
                 : !_hasPermission
                 ? const Center(child: Text('Permission required'))
                 : ListView.builder(
@@ -325,6 +347,8 @@ class _MediaSheetState extends State<MediaSheet> {
         return Icons.edit_note;
       case 'short_text':
         return Icons.short_text;
+      case 'image':
+        return Icons.image;
       default:
         return Icons.chat_bubble_outline;
     }

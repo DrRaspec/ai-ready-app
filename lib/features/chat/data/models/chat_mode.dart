@@ -24,6 +24,12 @@ enum ChatMode {
     label: 'Concise',
     systemPrompt: 'Be extremely concise. Answer in as few words as possible.',
     iconName: 'short_text',
+  ),
+  imageGeneration(
+    id: 'image_generation',
+    label: 'Image Generator',
+    systemPrompt: 'Describe the image you want to generate.',
+    iconName: 'image',
   );
 
   final String id;

@@ -127,7 +127,6 @@ class AppTextField extends StatelessWidget {
       decoration: InputDecoration(
         hintText: hintText,
         labelText: labelText,
-        // Allow theme to handle styling
         contentPadding:
             contentPadding ??
             const EdgeInsets.symmetric(horizontal: 20, vertical: 16),

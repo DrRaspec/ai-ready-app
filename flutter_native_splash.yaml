@@ -1,0 +1,30 @@
+flutter_native_splash:
+  # Colors - Dark gradient theme to match AI chat energy
+  color: "#0A0A0F"
+  color_dark: "#0A0A0F"
+
+  # App icon as splash image
+  image: assets/icons/app_icon.png
+  image_dark: assets/icons/app_icon_dark.png
+
+  # Branding (bottom of screen) - optional tagline
+  branding: assets/icons/app_icon_minimal.png
+  branding_dark: assets/icons/app_icon_minimal.png
+  branding_mode: bottom
+
+  # Android 12+ specific settings
+  android_12:
+    color: "#0A0A0F"
+    color_dark: "#0A0A0F"
+    image: assets/icons/app_icon.png
+    image_dark: assets/icons/app_icon_dark.png
+    icon_background_color: "#0A0A0F"
+    icon_background_color_dark: "#0A0A0F"
+
+  # Platform specific
+  android: true
+  ios: true
+  web: false
+
+  # Fullscreen mode
+  fullscreen: true

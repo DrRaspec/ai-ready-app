@@ -3,6 +3,7 @@ class Conversation {
   final String id;
   final String? title;
   final int messageCount;
+  final bool isPinned;
   final String? summary;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -14,6 +15,7 @@ class Conversation {
     this.summary,
     this.createdAt,
     this.updatedAt,
+    this.isPinned = false,
   });
 
   factory Conversation.fromJson(Map<String, dynamic> json) => Conversation(
@@ -27,6 +29,7 @@ class Conversation {
     updatedAt: json['updatedAt'] != null
         ? DateTime.tryParse(json['updatedAt'] as String)
         : null,
+    isPinned: json['isPinned'] as bool? ?? false,
   );
 
   Conversation copyWith({
@@ -36,6 +39,7 @@ class Conversation {
     String? summary,
     DateTime? createdAt,
     DateTime? updatedAt,
+    bool? isPinned,
   }) {
     return Conversation(
       id: id ?? this.id,
@@ -44,6 +48,7 @@ class Conversation {
       summary: summary ?? this.summary,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      isPinned: isPinned ?? this.isPinned,
     );
   }
 }

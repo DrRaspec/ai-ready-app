@@ -4,6 +4,7 @@ class AuthData {
   final String? firstName;
   final String? lastName;
   final String? role;
+  final String? profilePictureUrl;
   final String? accessToken;
   final String? refreshToken;
   final String? accessTokenExpiresAt;
@@ -14,6 +15,7 @@ class AuthData {
     this.firstName,
     this.lastName,
     this.role,
+    this.profilePictureUrl,
     this.accessToken,
     this.refreshToken,
     this.accessTokenExpiresAt,
@@ -21,15 +23,16 @@ class AuthData {
 
   @override
   String toString() {
-    return 'AuthData(userId: $userId, email: $email, firstName: $firstName, lastName: $lastName, role: $role, accessToken: $accessToken, refreshToken: $refreshToken, accessTokenExpiresAt: $accessTokenExpiresAt)';
+    return 'AuthData(userId: $userId, email: $email, firstName: $firstName, lastName: $lastName, role: $role, profilePictureUrl: $profilePictureUrl, accessToken: $accessToken, refreshToken: $refreshToken, accessTokenExpiresAt: $accessTokenExpiresAt)';
   }
 
   factory AuthData.fromJson(Map<String, dynamic> json) => AuthData(
-    userId: json['userId'] as String?,
+    userId: json['userId'] as String? ?? json['id'] as String?,
     email: json['email'] as String?,
     firstName: json['firstName'] as String?,
     lastName: json['lastName'] as String?,
     role: json['role'] as String?,
+    profilePictureUrl: json['profilePictureUrl'] as String?,
     accessToken: json['accessToken'] as String?,
     refreshToken: json['refreshToken'] as String?,
     accessTokenExpiresAt: json['accessTokenExpiresAt'] as String?,
@@ -41,6 +44,7 @@ class AuthData {
     'firstName': firstName,
     'lastName': lastName,
     'role': role,
+    'profilePictureUrl': profilePictureUrl,
     'accessToken': accessToken,
     'refreshToken': refreshToken,
     'accessTokenExpiresAt': accessTokenExpiresAt,
@@ -52,6 +56,7 @@ class AuthData {
     String? firstName,
     String? lastName,
     String? role,
+    String? profilePictureUrl,
     String? accessToken,
     String? refreshToken,
     String? accessTokenExpiresAt,
@@ -62,6 +67,7 @@ class AuthData {
       firstName: firstName ?? this.firstName,
       lastName: lastName ?? this.lastName,
       role: role ?? this.role,
+      profilePictureUrl: profilePictureUrl ?? this.profilePictureUrl,
       accessToken: accessToken ?? this.accessToken,
       refreshToken: refreshToken ?? this.refreshToken,
       accessTokenExpiresAt: accessTokenExpiresAt ?? this.accessTokenExpiresAt,

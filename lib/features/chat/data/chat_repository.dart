@@ -7,8 +7,9 @@ import 'package:ai_chat_bot/features/chat/data/models/chat_request.dart';
 import 'package:ai_chat_bot/features/chat/data/models/chat_response.dart';
 import 'package:ai_chat_bot/features/chat/data/models/conversation.dart';
 import 'package:ai_chat_bot/features/chat/data/models/message.dart';
+import 'package:ai_chat_bot/features/chat/data/models/image_generation_request.dart';
 import 'package:ai_chat_bot/features/chat/data/models/usage_summary.dart';
-import 'package:ai_chat_bot/features/chat/data/models/voice_chat_response.dart';
+
 import 'package:dio/dio.dart';
 
 class ChatRepository {
@@ -41,6 +42,64 @@ class ChatRepository {
     try {
       final response = await _dioClient.dio.post(
         ApiPaths.chatWithConversation(conversationId),
+        data: request.toJson(),
+      );
+
+      return ApiResponse<ChatResponse>.fromJson(
+        response.data,
+        (json) => ChatResponse.fromJson(json as Map<String, dynamic>),
+      );
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  /// Send a vision chat message (uses llama-3.2-11b-vision-preview).
+  Future<ApiResponse<ChatResponse>> sendVisionMessage(
+    ChatRequest request,
+  ) async {
+    try {
+      final response = await _dioClient.dio.post(
+        ApiPaths.visionChat,
+        data: request.toJson(),
+      );
+
+      return ApiResponse<ChatResponse>.fromJson(
+        response.data,
+        (json) => ChatResponse.fromJson(json as Map<String, dynamic>),
+      );
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  /// Send a vision message to an existing conversation.
+  Future<ApiResponse<ChatResponse>> sendVisionMessageToConversation(
+    String conversationId,
+    ChatRequest request,
+  ) async {
+    try {
+      final response = await _dioClient.dio.post(
+        ApiPaths.visionChatWithConversation(conversationId),
+        data: request.toJson(),
+      );
+
+      return ApiResponse<ChatResponse>.fromJson(
+        response.data,
+        (json) => ChatResponse.fromJson(json as Map<String, dynamic>),
+      );
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  /// Generate an image from a prompt.
+  Future<ApiResponse<ChatResponse>> generateImage(
+    ImageGenerationRequest request,
+  ) async {
+    try {
+      final response = await _dioClient.dio.post(
+        ApiPaths.generateImage,
         data: request.toJson(),
       );
 
@@ -170,33 +229,6 @@ class ChatRepository {
       );
 
       return ApiResponse<void>.fromJson(response.data, (_) {});
-    } on DioException catch (e) {
-      throw ApiException.fromDioException(e);
-    }
-  }
-
-  /// Send voice message.
-  Future<ApiResponse<VoiceChatResponse>> sendVoiceMessage({
-    required String filePath,
-    String? conversationId,
-    String? language,
-  }) async {
-    try {
-      final formData = FormData.fromMap({
-        'file': await MultipartFile.fromFile(filePath),
-        if (conversationId != null) 'conversationId': conversationId,
-        if (language != null) 'language': language,
-      });
-
-      final response = await _dioClient.dio.post(
-        ApiPaths.voiceChat,
-        data: formData,
-      );
-
-      return ApiResponse<VoiceChatResponse>.fromJson(
-        response.data,
-        (json) => VoiceChatResponse.fromJson(json as Map<String, dynamic>),
-      );
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }

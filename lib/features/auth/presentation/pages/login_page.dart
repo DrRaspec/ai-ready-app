@@ -5,6 +5,7 @@ import 'package:ai_chat_bot/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -169,20 +170,29 @@ class _LoginPageState extends State<LoginPage> {
 
                       const SizedBox(height: 24),
 
-                      ElevatedButton(
-                        onPressed: isLoading ? null : _handleLogin,
-                        child: isLoading
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Text('Sign In'),
-                      ),
-
+                      if (isLoading) ...[
+                        Skeletonizer(
+                          enabled: true,
+                          child: Container(
+                            height: 50,
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ] else
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton(
+                            onPressed: _handleLogin,
+                            child: const Padding(
+                              padding: EdgeInsets.all(16.0),
+                              child: Text('Login'),
+                            ),
+                          ),
+                        ),
                       const SizedBox(height: 32),
 
                       // Divider

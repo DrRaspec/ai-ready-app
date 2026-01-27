@@ -4,6 +4,7 @@ class Message {
   final String role; // 'user' or 'assistant'
   final String content;
   final String? imageUrl;
+  final String? localImagePath;
   final DateTime? createdAt;
 
   const Message({
@@ -11,6 +12,7 @@ class Message {
     required this.role,
     required this.content,
     this.imageUrl,
+    this.localImagePath,
     this.createdAt,
   });
 
@@ -28,10 +30,11 @@ class Message {
   );
 
   /// Create a local user message (before API response).
-  factory Message.userLocal(String content) => Message(
+  factory Message.userLocal(String content, {String? imagePath}) => Message(
     id: DateTime.now().millisecondsSinceEpoch.toString(),
     role: 'user',
     content: content,
+    localImagePath: imagePath,
     createdAt: DateTime.now(),
   );
 
@@ -48,6 +51,7 @@ class Message {
     String? role,
     String? content,
     String? imageUrl,
+    String? localImagePath,
     DateTime? createdAt,
   }) {
     return Message(
@@ -55,6 +59,7 @@ class Message {
       role: role ?? this.role,
       content: content ?? this.content,
       imageUrl: imageUrl ?? this.imageUrl,
+      localImagePath: localImagePath ?? this.localImagePath,
       createdAt: createdAt ?? this.createdAt,
     );
   }

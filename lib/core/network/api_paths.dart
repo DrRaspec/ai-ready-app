@@ -13,8 +13,12 @@ class ApiPaths {
   static const String ai = '$apiVersion/ai';
   static const String chat = '$ai/chat';
   static const String voiceChat = '$ai/voice-chat';
+  static const String visionChat = '$ai/vision-chat';
+  static const String generateImage = '$ai/images/generate';
   static String chatWithConversation(String conversationId) =>
       '$ai/chat/$conversationId';
+  static String visionChatWithConversation(String conversationId) =>
+      '$ai/vision-chat/$conversationId';
 
   // Conversations
   static const String conversations = '$ai/conversations';
@@ -30,4 +34,9 @@ class ApiPaths {
 
   // Health
   static const String health = '/health';
+
+  // User Profile
+  static const String user = '$apiVersion/user';
+  static const String profile = '$user/profile';
+  static const String profilePicture = '$user/profile-picture';
 }

@@ -6,4 +6,6 @@ class RoutePaths {
   static const chat = '/chat';
   static const usage = '/usage';
   static const profile = '/profile';
+  static const bookmarks = '/bookmarks';
+  static const discover = '/discover';
 }

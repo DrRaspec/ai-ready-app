@@ -1,10 +1,17 @@
 import 'dart:convert';
 import 'dart:io';
+
+import 'package:mime/mime.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:bloc/bloc.dart';
 import 'package:ai_chat_bot/core/errors/api_exception.dart';
+import 'package:ai_chat_bot/core/logging/app_logger.dart';
 import 'package:ai_chat_bot/features/chat/data/chat_repository.dart';
 import 'package:ai_chat_bot/features/chat/data/models/chat_request.dart';
+import 'package:ai_chat_bot/features/chat/data/models/conversation.dart';
 import 'package:ai_chat_bot/features/chat/data/models/message.dart';
+import 'package:ai_chat_bot/features/chat/data/models/chat_mode.dart';
+import 'package:ai_chat_bot/features/chat/data/models/image_generation_request.dart';
 import 'chat_event.dart';
 import 'chat_state.dart';
 
@@ -24,7 +31,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<AttachImage>(_onAttachImage);
     on<DetachImage>(_onDetachImage);
     on<SetChatMode>(_onSetChatMode);
-    on<VoiceMessageSent>(_onVoiceMessageSent);
+
     on<EditMessage>(_onEditMessage);
   }
 
@@ -79,59 +86,19 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     emit(state.copyWith(chatMode: event.mode));
   }
 
-  Future<void> _onVoiceMessageSent(
-    VoiceMessageSent event,
-    Emitter<ChatState> emit,
-  ) async {
-    emit(state.copyWith(isSending: true, clearError: true));
-
-    try {
-      final response = await _repository.sendVoiceMessage(
-        filePath: event.path,
-        conversationId: state.currentConversationId,
-        language: event.language,
-      );
-
-      if (response.success && response.data != null) {
-        final voiceResponse = response.data!;
-
-        final userMessage = Message.userLocal(voiceResponse.userText);
-        final assistantMessage = Message.assistantLocal(
-          voiceResponse.aiText,
-        ); // Note: Audio not yet handled in Message model
-
-        // We probably want to play the audio response automatically or show a player
-        // For now, let's just show the text transcriptions
-
-        final updatedMessages = [
-          ...state.messages,
-          userMessage,
-          assistantMessage,
-        ];
-
-        emit(
-          state.copyWith(
-            messages: updatedMessages,
-            currentConversationId:
-                voiceResponse.conversationId ?? state.currentConversationId,
-            isSending: false,
-          ),
-        );
-
-        add(const LoadConversations());
-      } else {
-        emit(state.copyWith(isSending: false, errorMessage: response.message));
-      }
-    } on ApiException catch (e) {
-      emit(state.copyWith(isSending: false, errorMessage: e.message));
-    }
-  }
-
   Future<void> _onLoadConversations(
     LoadConversations event,
     Emitter<ChatState> emit,
   ) async {
-    emit(state.copyWith(status: ChatStatus.loading, clearError: true));
+    // If we're already loading or strict refresh isn't requested and we don't have more, return.
+    // For now, assuming LoadConversations checks event.page normally.
+    // If event.page == 0, it's a refresh.
+
+    final isRefresh = event.page == 0;
+    if (!isRefresh && !state.hasMoreConversations) return;
+    if (state.isConversationsLoading) return;
+
+    emit(state.copyWith(isConversationsLoading: true, clearError: true));
 
     try {
       final response = await _repository.getConversations(
@@ -140,22 +107,34 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       );
 
       if (response.success && response.data != null) {
+        final newConversations = response.data!;
+        final hasMore = newConversations.length >= event.size;
+
+        // Merge conversations
+        final List<Conversation> updatedList = isRefresh
+            ? newConversations
+            : [...state.conversations, ...newConversations];
+
         emit(
           state.copyWith(
-            status: ChatStatus.success,
-            conversations: response.data!,
+            conversations: updatedList,
+            isConversationsLoading: false,
+            hasMoreConversations: hasMore,
+            conversationPage: event.page,
           ),
         );
       } else {
         emit(
           state.copyWith(
-            status: ChatStatus.failure,
+            isConversationsLoading: false,
             errorMessage: response.message,
           ),
         );
       }
     } on ApiException catch (e) {
-      emit(state.copyWith(status: ChatStatus.failure, errorMessage: e.message));
+      emit(
+        state.copyWith(isConversationsLoading: false, errorMessage: e.message),
+      );
     }
   }
 
@@ -198,7 +177,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     Emitter<ChatState> emit,
   ) async {
     // Optimistically add user message
-    final userMessage = Message.userLocal(event.message);
+    final userMessage = Message.userLocal(
+      event.message,
+      imagePath: state.attachedImagePath,
+    );
     final updatedMessages = [...state.messages, userMessage];
 
     emit(
@@ -210,48 +192,107 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     );
 
     try {
+      String? base64Image;
+      String? mimeType;
+
+      if (state.attachedImagePath != null) {
+        final file = File(state.attachedImagePath!);
+        final bytes = await _compressImage(file);
+        base64Image = base64Encode(bytes);
+        mimeType = lookupMimeType(state.attachedImagePath!) ?? 'image/jpeg';
+      }
+
       final request = ChatRequest(
         message: event.message,
         systemPrompt: event.systemPrompt ?? (state.chatMode?.systemPrompt),
         model: event.model,
         temperature: event.temperature,
-        imageBase64: state.attachedImagePath != null
-            ? base64Encode(await File(state.attachedImagePath!).readAsBytes())
-            : null,
+        imageBase64: base64Image,
+        imageMimeType: mimeType,
       );
 
+      final hasImage = state.attachedImagePath != null;
+
       // Clear attachment after sending
-      if (state.attachedImagePath != null) {
+      if (hasImage) {
         add(const DetachImage());
       }
 
-      final response = event.conversationId != null
-          ? await _repository.sendMessageToConversation(
-              event.conversationId!,
-              request,
-            )
-          : await _repository.sendMessage(request);
-
-      if (response.success && response.data != null) {
-        final chatResponse = response.data!;
-        final assistantMessage = Message.assistantLocal(chatResponse.response);
-
-        // Update conversation ID if this was a new conversation
-        final newConversationId =
-            chatResponse.conversationId ?? state.currentConversationId;
-
-        emit(
-          state.copyWith(
-            messages: [...updatedMessages, assistantMessage],
-            currentConversationId: newConversationId,
-            isSending: false,
-          ),
+      if (state.chatMode == ChatMode.imageGeneration) {
+        // Handle Image Generation
+        final imageRequest = ImageGenerationRequest(
+          prompt: event.message,
+          aspectRatio: "16:9", // Default for now
         );
 
-        // Reload conversations to get updated list
-        add(const LoadConversations());
+        // Use repo to generate image
+        // determining if conversation context matters for image gen? Usually not for this specific endpoint.
+        // But the endpoint is independent.
+        final response = await _repository.generateImage(imageRequest);
+
+        if (response.success && response.data != null) {
+          final chatResponse = response.data!;
+          // Assistant message will likely contain the image URL in `response` field
+          final assistantMessage = Message.assistantLocal(
+            chatResponse.response,
+          );
+
+          emit(
+            state.copyWith(
+              messages: [...updatedMessages, assistantMessage],
+              // currentConversationId: ... // Image gen might not return conversation ID or might not be chat based.
+              // Assuming standalone interaction for now unless backend returns ID.
+              isSending: false,
+              lastAnimatedMessageId: assistantMessage.id,
+            ),
+          );
+        } else {
+          emit(
+            state.copyWith(isSending: false, errorMessage: response.message),
+          );
+        }
       } else {
-        emit(state.copyWith(isSending: false, errorMessage: response.message));
+        // Standard Chat / Vision Chat Logic
+        final response = hasImage
+            ? (event.conversationId != null
+                  ? await _repository.sendVisionMessageToConversation(
+                      event.conversationId!,
+                      request,
+                    )
+                  : await _repository.sendVisionMessage(request))
+            : (event.conversationId != null
+                  ? await _repository.sendMessageToConversation(
+                      event.conversationId!,
+                      request,
+                    )
+                  : await _repository.sendMessage(request));
+
+        if (response.success && response.data != null) {
+          final chatResponse = response.data!;
+          final assistantMessage = Message.assistantLocal(
+            chatResponse.response,
+          );
+
+          // Update conversation ID if this was a new conversation
+          final newConversationId =
+              chatResponse.conversationId ?? state.currentConversationId;
+
+          emit(
+            state.copyWith(
+              messages: [...updatedMessages, assistantMessage],
+              currentConversationId: newConversationId,
+              isSending: false,
+              lastAnimatedMessageId: assistantMessage.id,
+            ),
+          );
+
+          // Reload conversations to get updated list
+          add(const LoadConversations());
+        } else {
+          emit(
+            state.copyWith(isSending: false, errorMessage: response.message),
+          );
+        }
       }
     } on ApiException catch (e) {
       emit(state.copyWith(isSending: false, errorMessage: e.message));
@@ -321,6 +362,46 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       }
     } on ApiException catch (e) {
       emit(state.copyWith(errorMessage: e.message));
+    }
+  }
+
+  Future<List<int>> _compressImage(File file) async {
+    final originalSize = await file.length();
+    AppLogger.d(
+      'Image: Original Size = ${(originalSize / 1024).toStringAsFixed(2)} KB',
+    );
+
+    try {
+      final result = await FlutterImageCompress.compressWithFile(
+        file.absolute.path,
+        minWidth: 800,
+        minHeight: 800,
+        quality: 70,
+      );
+
+      if (result == null) {
+        AppLogger.d('Image: Compression returned null. Using original.');
+        // Fallback to original if compression fails
+        return await file.readAsBytes();
+      }
+
+      AppLogger.d(
+        'Image: Compressed Size = ${(result.length / 1024).toStringAsFixed(2)} KB',
+      );
+      return result;
+    } catch (e) {
+      AppLogger.e('Image: Compression failed ($e).');
+
+      // If original is > 4MB, do not send it as it will likely fail
+      if (originalSize > 4 * 1024 * 1024) {
+        throw ApiException(
+          message: 'Image too large (rebuild app required)',
+          status: 413,
+        );
+      }
+
+      AppLogger.w('Image: Fallback to original.');
+      return await file.readAsBytes();
     }
   }
 

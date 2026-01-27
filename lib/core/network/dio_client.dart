@@ -27,9 +27,9 @@ class DioClient {
     dio = Dio(
       BaseOptions(
         baseUrl: EnvConfig.apiBaseUrl,
-        connectTimeout: const Duration(seconds: 10),
-        receiveTimeout: const Duration(seconds: 10),
-        sendTimeout: const Duration(seconds: 10),
+        connectTimeout: const Duration(seconds: 60),
+        receiveTimeout: const Duration(seconds: 60),
+        sendTimeout: const Duration(seconds: 60),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -172,10 +172,16 @@ class DioClient {
 
       final data = response.data;
       if (data is Map<String, dynamic>) {
-        final access = (data['accessToken'] ?? data['access_token'])
+        // Handle nested data object (common in our API response wrapper)
+        final tokenData = data['data'] is Map<String, dynamic>
+            ? data['data']
+            : data;
+
+        final access = (tokenData['accessToken'] ?? tokenData['access_token'])
             ?.toString();
-        final refresh = (data['refreshToken'] ?? data['refresh_token'])
-            ?.toString();
+        final refresh =
+            (tokenData['refreshToken'] ?? tokenData['refresh_token'])
+                ?.toString();
         if (access != null && access.isNotEmpty) {
           await _tokenStorage.writeTokens(
             accessToken: access,

@@ -4,6 +4,8 @@ import 'package:ai_chat_bot/features/chat/presentation/pages/conversations_page.
 import 'package:ai_chat_bot/features/chat/presentation/pages/chat_page.dart';
 import 'package:ai_chat_bot/features/chat/presentation/pages/usage_page.dart';
 import 'package:ai_chat_bot/features/profile/presentation/profile_screen.dart';
+import 'package:ai_chat_bot/features/bookmarks/presentation/pages/bookmarks_page.dart';
+import 'package:ai_chat_bot/features/discover/presentation/pages/discover_page.dart';
 import 'package:go_router/go_router.dart';
 
 import 'route_names.dart';
@@ -13,7 +15,7 @@ import '../di/dependency_injection.dart';
 import '../storage/token_storage.dart';
 
 final GoRouter appRouter = GoRouter(
-  initialLocation: RoutePaths.conversations,
+  initialLocation: RoutePaths.chat,
   redirect: (context, state) async {
     final storage = di<TokenStorage>();
     return await RouterGuards.authGuard(state, storage);
@@ -22,7 +24,7 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: RoutePaths.home,
       name: RouteNames.home,
-      redirect: (context, state) => RoutePaths.conversations,
+      redirect: (context, state) => RoutePaths.chat,
     ),
     GoRoute(
       path: RoutePaths.login,
@@ -53,6 +55,16 @@ final GoRouter appRouter = GoRouter(
       path: RoutePaths.profile,
       name: RouteNames.profile,
       builder: (context, state) => const ProfileScreen(),
+    ),
+    GoRoute(
+      path: RoutePaths.bookmarks,
+      name: RouteNames.bookmarks,
+      builder: (context, state) => const BookmarksPage(),
+    ),
+    GoRoute(
+      path: RoutePaths.discover,
+      name: RouteNames.discover,
+      builder: (context, state) => const DiscoverPage(),
     ),
   ],
 );

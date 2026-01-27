@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 
 class AppTheme {
-  static ThemeData light() {
+  static ThemeData light({String? fontFamily}) {
     final scheme = ColorScheme.fromSeed(
       seedColor: AppColors.primary,
       brightness: Brightness.light,
@@ -22,17 +22,19 @@ class AppTheme {
       bodyMedium: TextStyle(color: AppColors.lightTextSecondary),
     );
 
+    final textTheme = _getTextTheme(fontFamily ?? 'App Default', baseTextTheme);
+
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
       scaffoldBackgroundColor: AppColors.lightBackground,
       appBarTheme: const AppBarTheme(
-        backgroundColor: Colors.transparent, // Modern transparent app bar
+        backgroundColor: Colors.transparent,
         foregroundColor: AppColors.lightText,
         elevation: 0,
         centerTitle: true,
       ),
-      textTheme: GoogleFonts.outfitTextTheme(baseTextTheme),
+      textTheme: textTheme,
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.lightSurface,
@@ -72,7 +74,7 @@ class AppTheme {
     );
   }
 
-  static ThemeData dark() {
+  static ThemeData dark({String? fontFamily}) {
     final scheme = ColorScheme.fromSeed(
       seedColor: AppColors.primary,
       brightness: Brightness.dark,
@@ -100,6 +102,8 @@ class AppTheme {
       bodyMedium: TextStyle(color: AppColors.darkTextSecondary),
     );
 
+    final textTheme = _getTextTheme(fontFamily ?? 'App Default', baseTextTheme);
+
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
@@ -110,7 +114,7 @@ class AppTheme {
         elevation: 0,
         centerTitle: true,
       ),
-      textTheme: GoogleFonts.outfitTextTheme(baseTextTheme),
+      textTheme: textTheme,
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.darkSurface,
@@ -148,5 +152,20 @@ class AppTheme {
         ),
       ),
     );
+  }
+
+  static TextTheme _getTextTheme(String fontFamily, TextTheme base) {
+    switch (fontFamily) {
+      case 'Roboto':
+        return GoogleFonts.robotoTextTheme(base);
+      case 'Inter':
+        return GoogleFonts.interTextTheme(base);
+      case 'Lora':
+        return GoogleFonts.loraTextTheme(base);
+      case 'Monospace':
+        return GoogleFonts.spaceMonoTextTheme(base);
+      default:
+        return GoogleFonts.outfitTextTheme(base);
+    }
   }
 }

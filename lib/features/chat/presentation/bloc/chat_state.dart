@@ -18,6 +18,14 @@ class ChatState extends Equatable {
   final String? attachedImagePath;
   final dynamic chatMode; // ChatMode enum
 
+  // Conversations Pagination & Status
+  final bool isConversationsLoading;
+  final bool hasMoreConversations;
+  final int conversationPage;
+
+  // Animation
+  final String? lastAnimatedMessageId;
+
   const ChatState({
     this.status = ChatStatus.initial,
     this.conversations = const [],
@@ -28,6 +36,10 @@ class ChatState extends Equatable {
     this.errorMessage,
     this.attachedImagePath,
     this.chatMode,
+    this.isConversationsLoading = false,
+    this.hasMoreConversations = true,
+    this.conversationPage = 0,
+    this.lastAnimatedMessageId,
   });
 
   bool get isLoading => status == ChatStatus.loading;
@@ -55,6 +67,11 @@ class ChatState extends Equatable {
     String? attachedImagePath,
     bool clearAttachedImage = false,
     dynamic chatMode,
+    bool? isConversationsLoading,
+    bool? hasMoreConversations,
+    int? conversationPage,
+    String? lastAnimatedMessageId,
+    bool clearLastAnimatedMessageId = false,
   }) {
     return ChatState(
       status: status ?? this.status,
@@ -70,6 +87,13 @@ class ChatState extends Equatable {
           ? null
           : (attachedImagePath ?? this.attachedImagePath),
       chatMode: chatMode ?? this.chatMode,
+      isConversationsLoading:
+          isConversationsLoading ?? this.isConversationsLoading,
+      hasMoreConversations: hasMoreConversations ?? this.hasMoreConversations,
+      conversationPage: conversationPage ?? this.conversationPage,
+      lastAnimatedMessageId: clearLastAnimatedMessageId
+          ? null
+          : (lastAnimatedMessageId ?? this.lastAnimatedMessageId),
     );
   }
 
@@ -84,5 +108,9 @@ class ChatState extends Equatable {
     errorMessage,
     attachedImagePath,
     chatMode,
+    isConversationsLoading,
+    hasMoreConversations,
+    conversationPage,
+    lastAnimatedMessageId,
   ];
 }
