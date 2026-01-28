@@ -1,4 +1,5 @@
 import 'package:ai_chat_bot/features/chat/data/models/conversation.dart';
+import 'package:ai_chat_bot/features/chat/data/models/chat_mode.dart';
 import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_event.dart';
 import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_state.dart';
@@ -78,6 +79,68 @@ class _ChatDrawerState extends State<ChatDrawer> {
                     },
                   ),
                   const SizedBox(height: 16),
+
+                  // Images Menu Item (like ChatGPT mobile app)
+                  BlocBuilder<ChatBloc, ChatState>(
+                    builder: (context, state) {
+                      final isImageMode =
+                          state.chatMode == ChatMode.imageGeneration;
+                      return InkWell(
+                        onTap: () {
+                          context.read<ChatBloc>().add(
+                            const SetChatMode(ChatMode.imageGeneration),
+                          );
+                          context.read<ChatBloc>().add(const NewConversation());
+                          context.pop();
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isImageMode
+                                ? colorScheme.primaryContainer.withValues(
+                                    alpha: 0.4,
+                                  )
+                                : colorScheme.surfaceContainerHighest
+                                      .withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(12),
+                            border: isImageMode
+                                ? Border.all(color: colorScheme.primary)
+                                : null,
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.primary.withValues(
+                                    alpha: 0.15,
+                                  ),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  Icons.auto_awesome,
+                                  size: 20,
+                                  color: colorScheme.primary,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                'Images',
+                                style: theme.textTheme.bodyLarge?.copyWith(
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
 
                   // New Conversation Button
                   SizedBox(

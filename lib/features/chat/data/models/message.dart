@@ -6,6 +6,8 @@ class Message {
   final String? imageUrl;
   final String? localImagePath;
   final DateTime? createdAt;
+  final String? detectedIntent;
+  final List<String>? suggestedReplies;
 
   const Message({
     required this.id,
@@ -14,6 +16,8 @@ class Message {
     this.imageUrl,
     this.localImagePath,
     this.createdAt,
+    this.detectedIntent,
+    this.suggestedReplies,
   });
 
   bool get isUser => role == 'user';
@@ -24,6 +28,10 @@ class Message {
     role: json['role'] as String,
     content: json['content'] as String? ?? '',
     imageUrl: json['imageUrl'] as String?,
+    detectedIntent: json['detectedIntent'] as String?,
+    suggestedReplies: (json['suggestedReplies'] as List<dynamic>?)
+        ?.map((e) => e as String)
+        .toList(),
     createdAt: json['createdAt'] != null
         ? DateTime.tryParse(json['createdAt'] as String)
         : null,
@@ -39,10 +47,18 @@ class Message {
   );
 
   /// Create a local assistant message (for optimistic UI).
-  factory Message.assistantLocal(String content) => Message(
+  factory Message.assistantLocal(
+    String content, {
+    String? imageUrl,
+    String? detectedIntent,
+    List<String>? suggestedReplies,
+  }) => Message(
     id: DateTime.now().millisecondsSinceEpoch.toString(),
     role: 'assistant',
     content: content,
+    imageUrl: imageUrl,
+    detectedIntent: detectedIntent,
+    suggestedReplies: suggestedReplies,
     createdAt: DateTime.now(),
   );
 
@@ -53,6 +69,8 @@ class Message {
     String? imageUrl,
     String? localImagePath,
     DateTime? createdAt,
+    String? detectedIntent,
+    List<String>? suggestedReplies,
   }) {
     return Message(
       id: id ?? this.id,
@@ -61,6 +79,8 @@ class Message {
       imageUrl: imageUrl ?? this.imageUrl,
       localImagePath: localImagePath ?? this.localImagePath,
       createdAt: createdAt ?? this.createdAt,
+      detectedIntent: detectedIntent ?? this.detectedIntent,
+      suggestedReplies: suggestedReplies ?? this.suggestedReplies,
     );
   }
 }

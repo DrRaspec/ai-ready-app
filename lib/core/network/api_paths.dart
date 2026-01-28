@@ -11,10 +11,17 @@ class ApiPaths {
 
   // AI Chat
   static const String ai = '$apiVersion/ai';
+  static const String smart = '$ai/smart';
+  static String smartWithConversation(String conversationId) =>
+      '$ai/smart/$conversationId';
+  static const String stream = '$ai/stream';
+
   static const String chat = '$ai/chat';
   static const String voiceChat = '$ai/voice-chat';
   static const String visionChat = '$ai/vision-chat';
   static const String generateImage = '$ai/images/generate';
+  static const String editImage = '$ai/images/edit';
+  static const String enhancePrompt = '$ai/prompts/enhance';
   static String chatWithConversation(String conversationId) =>
       '$ai/chat/$conversationId';
   static String visionChatWithConversation(String conversationId) =>
@@ -22,12 +29,22 @@ class ApiPaths {
 
   // Conversations
   static const String conversations = '$ai/conversations';
-  static String conversationMessages(String conversationId) =>
+  static String messages(String conversationId) =>
       '$ai/conversations/$conversationId/messages';
   static String conversation(String conversationId) =>
       '$ai/conversations/$conversationId';
+  static String regenerate(String conversationId) =>
+      '$ai/conversations/$conversationId/regenerate';
+  static String summary(String conversationId) =>
+      '$ai/conversations/$conversationId/summary';
+  static String feedback(String messageId) =>
+      '$ai/messages/$messageId/feedback';
+  static const String search = '$apiVersion/search';
+
   static String editMessage(String conversationId, String messageId) =>
       '$ai/conversations/$conversationId/messages/$messageId';
+  static String shareConversation(String conversationId) =>
+      '$apiVersion/conversations/$conversationId/share';
 
   // Usage
   static const String usage = '$ai/usage';
@@ -39,4 +56,5 @@ class ApiPaths {
   static const String user = '$apiVersion/user';
   static const String profile = '$user/profile';
   static const String profilePicture = '$user/profile-picture';
+  static const String preferences = '$apiVersion/users/me/preferences';
 }

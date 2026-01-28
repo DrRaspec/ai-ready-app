@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/services.dart';
+import 'package:gal/gal.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_event.dart';
@@ -13,6 +15,7 @@ import 'package:ai_chat_bot/core/theme/theme_state.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
+import 'dart:math' as math; // Added for TypingIndicator
 import 'package:pasteboard/pasteboard.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:skeletonizer/skeletonizer.dart';
@@ -31,7 +34,9 @@ import 'package:ai_chat_bot/features/bookmarks/presentation/bloc/bookmarks_state
 import 'package:flutter_highlighter/flutter_highlighter.dart';
 
 class ChatPage extends StatefulWidget {
-  const ChatPage({super.key});
+  final String? conversationId;
+  final String? scrollToMessageId;
+  const ChatPage({super.key, this.conversationId, this.scrollToMessageId});
 
   @override
   State<ChatPage> createState() => _ChatPageState();
@@ -50,11 +55,16 @@ class _ChatPageState extends State<ChatPage> {
   // TTS
   final FlutterTts _flutterTts = FlutterTts();
   String? _currentlySpeakingMessageId;
+  bool _hasScrolledToBookmark = false;
 
   @override
   void initState() {
     super.initState();
 
+    print("ChatPage initialized with ID: ${widget.conversationId}");
+    if (widget.conversationId != null) {
+      context.read<ChatBloc>().add(SelectConversation(widget.conversationId!));
+    }
     _initSpeech();
     _initTts();
   }
@@ -328,7 +338,8 @@ class _ChatPageState extends State<ChatPage> {
             cancelOnError: false, // Critical for iOS stability
           ),
           listenFor: const Duration(seconds: 30),
-          pauseFor: const Duration(seconds: 3),
+          pauseFor: const Duration(seconds: 5),
+          localeId: 'en_US',
         );
       } catch (e) {
         debugPrint('STT Listen Exception: $e');
@@ -436,13 +447,46 @@ class _ChatPageState extends State<ChatPage> {
               Expanded(
                 child: BlocConsumer<ChatBloc, ChatState>(
                   listener: (context, state) {
+                    // Handle scrolling to specific message (Bookmark)
+                    if (widget.scrollToMessageId != null &&
+                        !_hasScrolledToBookmark &&
+                        !state.isLoading &&
+                        state.messages.isNotEmpty) {
+                      final index = state.messages.indexWhere(
+                        (m) => m.id == widget.scrollToMessageId,
+                      );
+
+                      if (index != -1) {
+                        _hasScrolledToBookmark = true;
+                        // Calculate list index (reversed list)
+                        // state.messages[length - 1 - listIndex] = message
+                        // listIndex = length - 1 - messageIndex
+                        final listIndex = state.messages.length - 1 - index;
+
+                        // Heuristic scroll: average item height ~150px
+                        // Small delay to allow build
+                        Future.delayed(const Duration(milliseconds: 300), () {
+                          if (_scrollController.hasClients) {
+                            _scrollController.animateTo(
+                              listIndex * 150.0,
+                              duration: const Duration(milliseconds: 600),
+                              curve: Curves.easeOut,
+                            );
+                          }
+                        });
+                      }
+                    }
+
                     // Scroll on new message or when generating completes
                     if (!state.isSending || state.messages.isNotEmpty) {
-                      // Small delay to let the list build
-                      Future.delayed(
-                        const Duration(milliseconds: 100),
-                        _scrollToBottom,
-                      );
+                      if (widget.scrollToMessageId == null) {
+                        // Only auto-scroll to bottom if NOT trying to view a bookmark
+                        // Small delay to let the list build
+                        Future.delayed(
+                          const Duration(milliseconds: 100),
+                          _scrollToBottom,
+                        );
+                      }
                     }
                   },
                   builder: (context, state) {
@@ -535,17 +579,39 @@ class _ChatPageState extends State<ChatPage> {
                         16,
                         20,
                       ), // Dynamic top padding for AppBar + Status Bar
-                      itemCount: state.messages.length,
+                      itemCount:
+                          state.messages.length + (state.isSending ? 1 : 0),
                       itemBuilder: (context, index) {
-                        // Reversed index to show newest at bottom
+                        // Handle Typing Indicator
+                        if (state.isSending && index == 0) {
+                          return const Padding(
+                            padding: EdgeInsets.only(bottom: 12),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: _TypingIndicator(),
+                            ),
+                          );
+                        }
+
+                        // Adjust index if typing indicator is present
+                        final adjustedIndex = state.isSending
+                            ? index - 1
+                            : index;
                         final message =
-                            state.messages[state.messages.length - 1 - index];
+                            state.messages[state.messages.length -
+                                1 -
+                                adjustedIndex];
+
+                        // Check if this is the last message in the full list
+                        final isLastMessage = adjustedIndex == 0;
                         return _MessageBubble(
+                          key: ValueKey(message.id),
                           message: message,
                           isSpeaking: _currentlySpeakingMessageId == message.id,
                           onSpeak: () => _speak(message),
                           shouldAnimate:
                               message.id == state.lastAnimatedMessageId,
+                          isLastMessage: isLastMessage,
                         );
                       },
                     );
@@ -919,13 +985,139 @@ class _MessageBubble extends StatelessWidget {
   final bool isSpeaking;
   final VoidCallback onSpeak;
   final bool shouldAnimate;
+  final bool isLastMessage;
 
   const _MessageBubble({
+    super.key,
     required this.message,
     required this.isSpeaking,
     required this.onSpeak,
     this.shouldAnimate = false,
+    this.isLastMessage = false,
   });
+
+  Widget _buildNetworkOrDataImage(String imageUrl) {
+    if (imageUrl.startsWith('data:image')) {
+      try {
+        final base64String = imageUrl.split(',').last;
+        final bytes = base64Decode(base64String);
+        return Image.memory(
+          bytes,
+          width: 200,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return _buildErrorPlaceholder();
+          },
+        );
+      } catch (e) {
+        return _buildErrorPlaceholder();
+      }
+    }
+
+    return Image.network(
+      imageUrl,
+      width: 200,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) {
+        return _buildErrorPlaceholder();
+      },
+    );
+  }
+
+  Widget _buildErrorPlaceholder() {
+    return Container(
+      width: 200,
+      height: 150,
+      color: Colors.grey[200],
+      child: const Center(child: Icon(Icons.broken_image)),
+    );
+  }
+
+  void _showImagePreview(
+    BuildContext context,
+    String? imageUrl,
+    String? localPath,
+  ) {
+    if (imageUrl == null && localPath == null) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // Image
+            InteractiveViewer(
+              minScale: 0.5,
+              maxScale: 4.0,
+              child: localPath != null
+                  ? Image.file(File(localPath))
+                  : _buildNetworkOrDataImage(imageUrl!), // Use helper
+            ),
+            // Close Button
+            Positioned(
+              top: 40,
+              right: 20,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+            // Download Button
+            Positioned(
+              bottom: 40,
+              child: FilledButton.icon(
+                onPressed: () async {
+                  try {
+                    final hasAccess = await Gal.hasAccess();
+                    if (!hasAccess) await Gal.requestAccess();
+
+                    if (localPath != null) {
+                      await Gal.putImage(localPath);
+                    } else if (imageUrl != null) {
+                      if (imageUrl.startsWith('data:image')) {
+                        final base64String = imageUrl.split(',').last;
+                        final bytes = base64Decode(base64String);
+                        await Gal.putImageBytes(bytes);
+                      } else {
+                        // Placeholder for network download
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Downloading remote images not fully implemented yet',
+                            ),
+                          ),
+                        );
+                        return;
+                      }
+                    }
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Image saved to Gallery!'),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    debugPrint('Save Error: $e');
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to save: $e')),
+                      );
+                    }
+                  }
+                },
+                icon: const Icon(Icons.download_rounded),
+                label: const Text('Save to Gallery'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1001,32 +1193,26 @@ class _MessageBubble extends StatelessWidget {
                       children: [
                         if (message.localImagePath != null ||
                             message.imageUrl != null)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: message.localImagePath != null
-                                  ? Image.file(
-                                      File(message.localImagePath!),
-                                      width: 200,
-                                      fit: BoxFit.cover,
-                                    )
-                                  : Image.network(
-                                      message.imageUrl!,
-                                      width: 200,
-                                      fit: BoxFit.cover,
-                                      errorBuilder:
-                                          (context, error, stackTrace) {
-                                            return Container(
-                                              width: 200,
-                                              height: 150,
-                                              color: Colors.grey[200],
-                                              child: const Center(
-                                                child: Icon(Icons.broken_image),
-                                              ),
-                                            );
-                                          },
-                                    ),
+                          GestureDetector(
+                            onTap: () => _showImagePreview(
+                              context,
+                              message.imageUrl,
+                              message.localImagePath,
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: message.localImagePath != null
+                                    ? Image.file(
+                                        File(message.localImagePath!),
+                                        width: 200,
+                                        fit: BoxFit.cover,
+                                      )
+                                    : _buildNetworkOrDataImage(
+                                        message.imageUrl!,
+                                      ),
+                              ),
                             ),
                           ),
                         shouldAnimate
@@ -1081,7 +1267,38 @@ class _MessageBubble extends StatelessWidget {
             ],
           ),
 
-          // Action Row (Copy, Read)
+          // Suggested Replies (Assistant Only, Last Message Only)
+          if (!isUser &&
+              isLastMessage &&
+              message.suggestedReplies != null &&
+              message.suggestedReplies!.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(left: 40, top: 8),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: message.suggestedReplies!.map((reply) {
+                  return ActionChip(
+                    label: Text(
+                      reply,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                    backgroundColor: theme.colorScheme.primaryContainer
+                        .withValues(alpha: 0.3),
+                    side: BorderSide.none,
+                    padding: EdgeInsets.zero,
+                    labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+                    onPressed: () {
+                      context.read<ChatBloc>().add(SendMessage(message: reply));
+                    },
+                  );
+                }).toList(),
+              ),
+            ),
+
+          // Action Row (Copy, Read, Feedback)
           Padding(
             padding: EdgeInsets.only(
               top: 4,
@@ -1178,6 +1395,57 @@ class _MessageBubble extends StatelessWidget {
                     );
                   },
                 ),
+                // Feedback Buttons (Assistant Only)
+                if (!isUser) ...[
+                  const SizedBox(width: 4),
+                  InkWell(
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      context.read<ChatBloc>().add(
+                        RateMessage(message.id, isPositive: true),
+                      );
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Thanks for the feedback!'),
+                          duration: Duration(seconds: 1),
+                        ),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.all(6),
+                      child: Icon(
+                        Icons.thumb_up_alt_outlined,
+                        size: 16,
+                        color: theme.colorScheme.outline,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  InkWell(
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      context.read<ChatBloc>().add(
+                        RateMessage(message.id, isPositive: false),
+                      );
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Thanks for the feedback!'),
+                          duration: Duration(seconds: 1),
+                        ),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.all(6),
+                      child: Icon(
+                        Icons.thumb_down_alt_outlined,
+                        size: 16,
+                        color: theme.colorScheme.outline,
+                      ),
+                    ),
+                  ),
+                ],
                 // Time (Moved here for better alignment with actions)
                 if (message.createdAt != null) ...[
                   const SizedBox(width: 8),
@@ -1218,6 +1486,25 @@ void _showMessageOptions(BuildContext context, Message message) {
               onTap: () {
                 Navigator.pop(context); // Close sheet
                 _showEditDialog(context, message);
+              },
+            ),
+          if (!message.isUser)
+            ListTile(
+              leading: const Icon(Icons.refresh),
+              title: const Text('Regenerate Response'),
+              onTap: () {
+                Navigator.pop(context); // Close sheet
+                // Need conversationId. Assuming it's in context/state.
+                // We can fetch it via context.read<ChatBloc>().state.currentConversationId
+                final conversationId = context
+                    .read<ChatBloc>()
+                    .state
+                    .currentConversationId;
+                if (conversationId != null) {
+                  context.read<ChatBloc>().add(
+                    RegenerateMessage(conversationId),
+                  );
+                }
               },
             ),
           ListTile(
@@ -1451,6 +1738,75 @@ class _TypewriterMarkdownState extends State<TypewriterMarkdown>
           backgroundColor: widget.isDark ? Colors.grey[800] : Colors.grey[200],
           fontFamily: 'monospace',
         ),
+      ),
+    );
+  }
+}
+
+class _TypingIndicator extends StatefulWidget {
+  const _TypingIndicator();
+
+  @override
+  State<_TypingIndicator> createState() => _TypingIndicatorState();
+}
+
+class _TypingIndicatorState extends State<_TypingIndicator>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+    _animation = CurvedAnimation(parent: _controller, curve: Curves.easeInOut);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final dotColor = theme.colorScheme.primary.withValues(alpha: 0.6);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: List.generate(3, (index) {
+          return AnimatedBuilder(
+            animation: _animation,
+            builder: (context, child) {
+              // Staggered sine wave
+              final offset = index * 0.2;
+              final value = math.sin(
+                (_controller.value * 2 * math.pi) + offset,
+              );
+              final opacity = (value + 1) / 2; // Normalize to 0..1
+
+              return Container(
+                margin: const EdgeInsets.symmetric(horizontal: 2),
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: dotColor.withOpacity(0.3 + (0.7 * opacity)),
+                  shape: BoxShape.circle,
+                ),
+              );
+            },
+          );
+        }),
       ),
     );
   }

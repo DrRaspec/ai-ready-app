@@ -106,6 +106,43 @@ class SetChatMode extends ChatEvent {
   List<Object?> get props => [mode];
 }
 
+class StartStreaming extends ChatEvent {
+  final String message;
+  final String? conversationId;
+  const StartStreaming(this.message, {this.conversationId});
+  @override
+  List<Object?> get props => [message, conversationId];
+}
+
+class RegenerateMessage extends ChatEvent {
+  final String conversationId;
+  const RegenerateMessage(this.conversationId);
+  @override
+  List<Object?> get props => [conversationId];
+}
+
+class RateMessage extends ChatEvent {
+  final String messageId;
+  final bool isPositive;
+  const RateMessage(this.messageId, {required this.isPositive});
+  @override
+  List<Object?> get props => [messageId, isPositive];
+}
+
+class GetSummary extends ChatEvent {
+  final String conversationId;
+  const GetSummary(this.conversationId);
+  @override
+  List<Object?> get props => [conversationId];
+}
+
+class PerformWebSearch extends ChatEvent {
+  final String query;
+  const PerformWebSearch(this.query);
+  @override
+  List<Object?> get props => [query];
+}
+
 class EditMessage extends ChatEvent {
   final String messageId;
   final String newContent;

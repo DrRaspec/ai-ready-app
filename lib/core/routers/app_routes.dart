@@ -44,7 +44,23 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: RoutePaths.chat,
       name: RouteNames.chat,
-      builder: (context, state) => const ChatPage(),
+      builder: (context, state) {
+        final extra = state.extra;
+        String? conversationId;
+        String? scrollToMessageId;
+
+        if (extra is String) {
+          conversationId = extra;
+        } else if (extra is Map<String, dynamic>) {
+          conversationId = extra['conversationId'] as String?;
+          scrollToMessageId = extra['messageId'] as String?;
+        }
+
+        return ChatPage(
+          conversationId: conversationId,
+          scrollToMessageId: scrollToMessageId,
+        );
+      },
     ),
     GoRoute(
       path: RoutePaths.usage,

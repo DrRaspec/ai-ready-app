@@ -4,6 +4,8 @@ import 'package:ai_chat_bot/core/storage/local_storage.dart';
 import 'package:ai_chat_bot/core/device/device_id_provider.dart';
 import 'package:ai_chat_bot/features/auth/data/auth_repository.dart';
 import 'package:ai_chat_bot/features/chat/data/chat_repository.dart';
+import 'package:ai_chat_bot/features/chat/data/streaming_service.dart';
+import 'package:ai_chat_bot/core/config/env_config.dart';
 import 'package:ai_chat_bot/core/di/dependency_injection.dart';
 import 'package:ai_chat_bot/core/routers/app_routes.dart';
 import 'package:ai_chat_bot/core/routers/route_paths.dart';
@@ -39,5 +41,13 @@ Future<void> setupDI() async {
   );
   di.registerLazySingleton<ChatRepository>(
     () => ChatRepository(di<DioClient>()),
+  );
+
+  // Services
+  di.registerLazySingleton<StreamingService>(
+    () => StreamingService(
+      dio: di<DioClient>().dio,
+      baseUrl: EnvConfig.apiBaseUrl,
+    ),
   );
 }

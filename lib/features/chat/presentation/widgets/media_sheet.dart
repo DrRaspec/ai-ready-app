@@ -30,16 +30,26 @@ class _MediaSheetState extends State<MediaSheet> {
   }
 
   Future<void> _checkPermissionAndLoadImages() async {
-    final PermissionState ps = await PhotoManager.requestPermissionExtend();
+    // Check current status first
+    PermissionState ps = await PhotoManager.requestPermissionExtend();
 
-    if (ps.isAuth) {
-      setState(() => _hasPermission = true);
-      _loadImages();
+    // If not authorized, try requesting again
+    if (!ps.isAuth) {
+      ps = await PhotoManager.requestPermissionExtend();
+    }
+
+    if (ps.isAuth || ps == PermissionState.limited) {
+      if (mounted) {
+        setState(() => _hasPermission = true);
+        _loadImages();
+      }
     } else {
-      setState(() {
-        _hasPermission = false;
-        _isLoadingImages = false;
-      });
+      if (mounted) {
+        setState(() {
+          _hasPermission = false;
+          _isLoadingImages = false;
+        });
+      }
     }
   }
 
@@ -162,7 +172,21 @@ class _MediaSheetState extends State<MediaSheet> {
                     ),
                   )
                 : !_hasPermission
-                ? const Center(child: Text('Permission required'))
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text('Permission required'),
+                        TextButton(
+                          onPressed: () {
+                            PhotoManager.openSetting(); // Open app settings
+                            _checkPermissionAndLoadImages(); // Retry after return
+                          },
+                          child: const Text('Open Settings'),
+                        ),
+                      ],
+                    ),
+                  )
                 : ListView.builder(
                     scrollDirection: Axis.horizontal,
                     physics: const ClampingScrollPhysics(), // Prevent conflict

@@ -10,8 +10,7 @@ import 'package:ai_chat_bot/features/chat/data/chat_repository.dart';
 import 'package:ai_chat_bot/features/chat/data/models/chat_request.dart';
 import 'package:ai_chat_bot/features/chat/data/models/conversation.dart';
 import 'package:ai_chat_bot/features/chat/data/models/message.dart';
-import 'package:ai_chat_bot/features/chat/data/models/chat_mode.dart';
-import 'package:ai_chat_bot/features/chat/data/models/image_generation_request.dart';
+import 'package:ai_chat_bot/features/chat/data/models/chat_mode.dart'; // Re-added
 import 'chat_event.dart';
 import 'chat_state.dart';
 
@@ -33,6 +32,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<SetChatMode>(_onSetChatMode);
 
     on<EditMessage>(_onEditMessage);
+    on<RegenerateMessage>(_onRegenerateMessage);
+    on<RateMessage>(_onRateMessage);
+    on<GetSummary>(_onGetSummary);
+    on<PerformWebSearch>(_onPerformWebSearch);
   }
 
   Future<void> _onEditMessage(
@@ -202,6 +205,21 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         mimeType = lookupMimeType(state.attachedImagePath!) ?? 'image/jpeg';
       }
 
+      final hasImage = state.attachedImagePath != null;
+      // Clear attachment after sending, before potential error,
+      // but usually better to clear after success?
+      // Existing logic cleared it early. We'll stick to that or move it.
+      // Let's clear it after request creation to simulate "sent".
+      if (hasImage) {
+        add(const DetachImage());
+      }
+
+      String modeHint = 'CHAT'; // Default
+      if (state.chatMode == ChatMode.imageGeneration) {
+        modeHint = 'IMAGE_GEN';
+      }
+      // You can add more mappings if needed, e.g. CODING -> CHAT or CODING
+
       final request = ChatRequest(
         message: event.message,
         systemPrompt: event.systemPrompt ?? (state.chatMode?.systemPrompt),
@@ -209,90 +227,54 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         temperature: event.temperature,
         imageBase64: base64Image,
         imageMimeType: mimeType,
+        modeHint: modeHint,
+        conversationId: state.currentConversationId,
+        forceTextChat: modeHint == 'CHAT',
       );
 
-      final hasImage = state.attachedImagePath != null;
+      final response = await _repository.sendSmartMessage(request);
 
-      // Clear attachment after sending
-      if (hasImage) {
-        add(const DetachImage());
-      }
+      if (response.success && response.data != null) {
+        final chatResponse = response.data!;
 
-      if (state.chatMode == ChatMode.imageGeneration) {
-        // Handle Image Generation
-        final imageRequest = ImageGenerationRequest(
-          prompt: event.message,
-          aspectRatio: "16:9", // Default for now
+        // Logic to determine if we show the image
+        String? finalImageUrl = chatResponse.imageUrl;
+        final intent = chatResponse.detectedIntent;
+
+        if (intent == 'TEXT_CHAT' || intent == 'VISION_CHAT') {
+          // Force no image for text intents, even if backend sends one (safety)
+          finalImageUrl = null;
+        }
+
+        final assistantMessage = Message.assistantLocal(
+          chatResponse.response,
+          imageUrl: finalImageUrl,
+          detectedIntent: intent,
+          suggestedReplies: chatResponse.suggestedReplies,
         );
 
-        // Use repo to generate image
-        // determining if conversation context matters for image gen? Usually not for this specific endpoint.
-        // But the endpoint is independent.
-        final response = await _repository.generateImage(imageRequest);
+        final newConversationId =
+            chatResponse.conversationId ?? state.currentConversationId;
 
-        if (response.success && response.data != null) {
-          final chatResponse = response.data!;
-          // Assistant message will likely contain the image URL in `response` field
-          final assistantMessage = Message.assistantLocal(
-            chatResponse.response,
-          );
+        // Check if this is a new conversation BEFORE emitting new state
+        final wasNewConversation =
+            state.currentConversationId == null && newConversationId != null;
 
-          emit(
-            state.copyWith(
-              messages: [...updatedMessages, assistantMessage],
-              // currentConversationId: ... // Image gen might not return conversation ID or might not be chat based.
-              // Assuming standalone interaction for now unless backend returns ID.
-              isSending: false,
-              lastAnimatedMessageId: assistantMessage.id,
-            ),
-          );
-        } else {
-          emit(
-            state.copyWith(isSending: false, errorMessage: response.message),
-          );
+        emit(
+          state.copyWith(
+            messages: [...updatedMessages, assistantMessage],
+            currentConversationId: newConversationId,
+            isSending: false,
+            lastAnimatedMessageId: assistantMessage.id,
+          ),
+        );
+
+        // Reload conversations if this was a new conversation
+        if (wasNewConversation) {
+          add(const LoadConversations());
         }
       } else {
-        // Standard Chat / Vision Chat Logic
-        final response = hasImage
-            ? (event.conversationId != null
-                  ? await _repository.sendVisionMessageToConversation(
-                      event.conversationId!,
-                      request,
-                    )
-                  : await _repository.sendVisionMessage(request))
-            : (event.conversationId != null
-                  ? await _repository.sendMessageToConversation(
-                      event.conversationId!,
-                      request,
-                    )
-                  : await _repository.sendMessage(request));
-
-        if (response.success && response.data != null) {
-          final chatResponse = response.data!;
-          final assistantMessage = Message.assistantLocal(
-            chatResponse.response,
-          );
-
-          // Update conversation ID if this was a new conversation
-          final newConversationId =
-              chatResponse.conversationId ?? state.currentConversationId;
-
-          emit(
-            state.copyWith(
-              messages: [...updatedMessages, assistantMessage],
-              currentConversationId: newConversationId,
-              isSending: false,
-              lastAnimatedMessageId: assistantMessage.id,
-            ),
-          );
-
-          // Reload conversations to get updated list
-          add(const LoadConversations());
-        } else {
-          emit(
-            state.copyWith(isSending: false, errorMessage: response.message),
-          );
-        }
+        emit(state.copyWith(isSending: false, errorMessage: response.message));
       }
     } on ApiException catch (e) {
       emit(state.copyWith(isSending: false, errorMessage: e.message));
@@ -411,6 +393,93 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
       if (response.success && response.data != null) {
         emit(state.copyWith(usage: response.data!));
+      }
+    } on ApiException catch (e) {
+      emit(state.copyWith(errorMessage: e.message));
+    }
+  }
+
+  Future<void> _onRegenerateMessage(
+    RegenerateMessage event,
+    Emitter<ChatState> emit,
+  ) async {
+    emit(state.copyWith(isSending: true));
+    try {
+      final response = await _repository.regenerate(event.conversationId);
+      if (response.success && response.data != null) {
+        final chatResponse = response.data!;
+
+        // Remove last assistant message if exists, or just append?
+        // Usually regenerate replaces the last message.
+        // For simplicity, we'll append a new message or update the last one.
+        // Let's replace the last assistant message if it exists.
+
+        List<Message> updatedMessages = List.from(state.messages);
+        if (updatedMessages.isNotEmpty && updatedMessages.last.isAssistant) {
+          updatedMessages.removeLast();
+        }
+
+        final assistantMessage = Message.assistantLocal(
+          chatResponse.response,
+          imageUrl: chatResponse.imageUrl,
+          detectedIntent: chatResponse.detectedIntent,
+          suggestedReplies: chatResponse.suggestedReplies,
+        );
+
+        updatedMessages.add(assistantMessage);
+
+        emit(
+          state.copyWith(
+            messages: updatedMessages,
+            isSending: false,
+            lastAnimatedMessageId: assistantMessage.id,
+          ),
+        );
+      } else {
+        emit(state.copyWith(isSending: false, errorMessage: response.message));
+      }
+    } on ApiException catch (e) {
+      emit(state.copyWith(isSending: false, errorMessage: e.message));
+    }
+  }
+
+  Future<void> _onRateMessage(
+    RateMessage event,
+    Emitter<ChatState> emit,
+  ) async {
+    try {
+      await _repository.rateFeedback(event.messageId, event.isPositive);
+      // Optionally show a snackbar or update message state locally to show feedback given
+    } on ApiException catch (e) {
+      // access context in UI to show error? or emit state error
+      AppLogger.e('Rate Message Failed: ${e.message}');
+    }
+  }
+
+  Future<void> _onGetSummary(GetSummary event, Emitter<ChatState> emit) async {
+    try {
+      final response = await _repository.getSummary(event.conversationId);
+      if (response.success) {
+        // Show summary in a dialog or snippet in UI?
+        // Using AppLogger for now or we could stick it in a state field `lastSummary`
+        AppLogger.d('Summary: ${response.data}');
+      }
+    } on ApiException catch (e) {
+      emit(state.copyWith(errorMessage: e.message));
+    }
+  }
+
+  Future<void> _onPerformWebSearch(
+    PerformWebSearch event,
+    Emitter<ChatState> emit,
+  ) async {
+    // This might be called contextually or by user command
+    try {
+      final response = await _repository.webSearch(event.query);
+      if (response.success && response.data != null) {
+        // Handle search results, maybe append a system message or separate UI state
+        // For now, logging
+        AppLogger.d('Search Results: ${response.data?.length}');
       }
     } on ApiException catch (e) {
       emit(state.copyWith(errorMessage: e.message));

@@ -7,6 +7,9 @@ class ChatRequest {
   final String? imageMimeType;
   final String? model;
   final double? temperature;
+  final String? modeHint;
+  final String? conversationId;
+  final bool? forceTextChat;
 
   const ChatRequest({
     required this.message,
@@ -16,6 +19,9 @@ class ChatRequest {
     this.imageMimeType,
     this.model,
     this.temperature,
+    this.modeHint,
+    this.conversationId,
+    this.forceTextChat,
   });
 
   Map<String, dynamic> toJson() {
@@ -26,6 +32,9 @@ class ChatRequest {
     if (imageMimeType != null) map['imageMimeType'] = imageMimeType;
     if (model != null) map['model'] = model;
     if (temperature != null) map['temperature'] = temperature;
+    if (modeHint != null) map['modeHint'] = modeHint;
+    // Note: conversationId is passed in URL path, not body
+    if (forceTextChat != null) map['forceTextChat'] = forceTextChat;
     return map;
   }
 }

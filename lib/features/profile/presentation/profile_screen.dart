@@ -402,6 +402,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  String _formatStat(int value) {
+    return value > 99 ? '99+' : value.toString();
+  }
+
   Widget _buildStatsSection(
     ProfileState profileState,
     ThemeData theme,
@@ -437,7 +441,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Expanded(
                 child: _StatCard(
                   icon: Icons.chat_bubble_outline_rounded,
-                  value: '${profileState.conversationCount}',
+                  value: _formatStat(profileState.conversationCount),
                   label: 'Conversations',
                   color: Colors.blue,
                 ),
@@ -446,7 +450,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Expanded(
                 child: _StatCard(
                   icon: Icons.message_outlined,
-                  value: '${profileState.messageCount}',
+                  value: _formatStat(profileState.messageCount),
                   label: 'Messages',
                   color: Colors.green,
                 ),
@@ -455,7 +459,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Expanded(
                 child: _StatCard(
                   icon: Icons.emoji_events_outlined,
-                  value: '${profileState.unlockedAchievements.length}',
+                  value: _formatStat(profileState.unlockedAchievements.length),
                   label: 'Badges',
                   color: Colors.orange,
                 ),
