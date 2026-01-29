@@ -40,6 +40,51 @@ class ChatRepository {
     }
   }
 
+  /// Stream a smart message (SSE).
+  /// Returns a Stream of partial text chunks.
+  Stream<String> streamSmartMessage(ChatRequest request) async* {
+    try {
+      // Dio doesn't support SSE natively well, using standard http for streaming
+      // Construct full URL
+      // We need to use DioClient's base URL and headers logic, but for simplicity
+      // and standard SSE support, we'll assume a helper or direct implementation.
+      // Ideally, DioClient should expose a streamed request method.
+      // For now, implementing with ResponseType.stream in Dio.
+
+      final path = request.conversationId != null
+          ? ApiPaths.streamChatWithConversation(request.conversationId!)
+          : ApiPaths.streamChat;
+
+      final response = await _dioClient.dio.post(
+        path,
+        data: request.toJson(),
+        options: Options(
+          responseType: ResponseType.stream,
+          headers: {'Accept': 'text/event-stream'},
+        ),
+      );
+
+      final stream = response.data.stream as Stream<List<int>>;
+
+      // Use a transformer to handle decoding and splitting lines
+      // Note: This is a basic implementation. real SSE parsers handle 'data:' prefix
+      yield* stream
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())
+          .map((line) {
+            if (line.startsWith('data: ')) {
+              final data = line.substring(6);
+              if (data == '[DONE]') return '';
+              return data;
+            }
+            return '';
+          })
+          .where((text) => text.isNotEmpty);
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
   /// Share a conversation.
   Future<ApiResponse<String>> shareConversation(String conversationId) async {
     try {
@@ -256,11 +301,17 @@ class ChatRepository {
   Future<ApiResponse<List<Conversation>>> getConversations({
     int page = 0,
     int size = 20,
+    String? folderId,
   }) async {
     try {
+      final Map<String, dynamic> queryParams = {'page': page, 'size': size};
+      if (folderId != null) {
+        queryParams['folderId'] = folderId;
+      }
+
       final response = await _dioClient.dio.get(
         ApiPaths.conversations,
-        queryParameters: {'page': page, 'size': size},
+        queryParameters: queryParams,
       );
 
       var responseData = response.data;
@@ -353,6 +404,23 @@ class ChatRepository {
       final response = await _dioClient.dio.patch(
         ApiPaths.conversation(conversationId),
         data: {'title': newTitle},
+      );
+
+      return ApiResponse<void>.fromJson(response.data, (_) {});
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  /// Move a conversation to a folder.
+  Future<ApiResponse<void>> moveConversationToFolder(
+    String conversationId,
+    String? folderId,
+  ) async {
+    try {
+      final response = await _dioClient.dio.patch(
+        ApiPaths.conversation(conversationId),
+        data: {'folderId': folderId},
       );
 
       return ApiResponse<void>.fromJson(response.data, (_) {});

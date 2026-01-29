@@ -22,6 +22,7 @@ class ChatState extends Equatable {
   final bool isConversationsLoading;
   final bool hasMoreConversations;
   final int conversationPage;
+  final String? currentFolderId;
 
   // Animation
   final String? lastAnimatedMessageId;
@@ -39,6 +40,7 @@ class ChatState extends Equatable {
     this.isConversationsLoading = false,
     this.hasMoreConversations = true,
     this.conversationPage = 0,
+    this.currentFolderId,
     this.lastAnimatedMessageId,
   });
 
@@ -70,6 +72,8 @@ class ChatState extends Equatable {
     bool? isConversationsLoading,
     bool? hasMoreConversations,
     int? conversationPage,
+    String? currentFolderId,
+    bool clearCurrentFolderId = false,
     String? lastAnimatedMessageId,
     bool clearLastAnimatedMessageId = false,
   }) {
@@ -91,6 +95,9 @@ class ChatState extends Equatable {
           isConversationsLoading ?? this.isConversationsLoading,
       hasMoreConversations: hasMoreConversations ?? this.hasMoreConversations,
       conversationPage: conversationPage ?? this.conversationPage,
+      currentFolderId: clearCurrentFolderId
+          ? null
+          : (currentFolderId ?? this.currentFolderId),
       lastAnimatedMessageId: clearLastAnimatedMessageId
           ? null
           : (lastAnimatedMessageId ?? this.lastAnimatedMessageId),
@@ -111,6 +118,7 @@ class ChatState extends Equatable {
     isConversationsLoading,
     hasMoreConversations,
     conversationPage,
+    currentFolderId,
     lastAnimatedMessageId,
   ];
 }

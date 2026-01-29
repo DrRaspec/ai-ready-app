@@ -49,11 +49,12 @@ class Message {
   /// Create a local assistant message (for optimistic UI).
   factory Message.assistantLocal(
     String content, {
+    String? id,
     String? imageUrl,
     String? detectedIntent,
     List<String>? suggestedReplies,
   }) => Message(
-    id: DateTime.now().millisecondsSinceEpoch.toString(),
+    id: id ?? DateTime.now().millisecondsSinceEpoch.toString(),
     role: 'assistant',
     content: content,
     imageUrl: imageUrl,

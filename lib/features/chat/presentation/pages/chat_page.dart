@@ -393,7 +393,7 @@ class _ChatPageState extends State<ChatPage> {
             title: BlocBuilder<ChatBloc, ChatState>(
               builder: (context, state) {
                 return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Text(
                       'AI Chat',
@@ -402,10 +402,37 @@ class _ChatPageState extends State<ChatPage> {
                       ),
                     ),
                     if (state.currentConversationId != null)
-                      Text(
-                        _selectedModel ?? 'Select Model',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
+                      SizedBox(
+                        height: 24,
+                        child: DropdownButton<String>(
+                          value: _selectedModel ?? 'llama-3.3-70b-versatile',
+                          underline: const SizedBox(),
+                          icon: Icon(
+                            Icons.arrow_drop_down,
+                            size: 16,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          onChanged: (String? newValue) {
+                            setState(() {
+                              _selectedModel = newValue;
+                            });
+                            // Optionally save to preferences
+                          },
+                          items:
+                              <String>[
+                                'llama-3.3-70b-versatile',
+                                'llama-3.1-8b-instant',
+                                'mixtral-8x7b-32768',
+                                'gemma2-9b-it',
+                              ].map<DropdownMenuItem<String>>((String value) {
+                                return DropdownMenuItem<String>(
+                                  value: value,
+                                  child: Text(value),
+                                );
+                              }).toList(),
                         ),
                       ),
                   ],

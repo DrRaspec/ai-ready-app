@@ -6,6 +6,8 @@ import 'package:ai_chat_bot/core/network/dio_client.dart';
 import 'package:ai_chat_bot/features/auth/data/auth_data.dart';
 import 'package:ai_chat_bot/features/auth/data/login_request_data.dart';
 import 'package:ai_chat_bot/features/auth/data/register_request_data.dart';
+import 'package:ai_chat_bot/features/auth/data/models/user_preferences.dart';
+import 'package:ai_chat_bot/features/auth/data/models/user_stats_data.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
@@ -94,7 +96,6 @@ class AuthRepository {
     }
   }
 
-  /// Get user profile
   Future<ApiResponse<AuthData>> getProfile() async {
     try {
       final response = await _dioClient.dio.get(ApiPaths.profile);
@@ -108,7 +109,6 @@ class AuthRepository {
     }
   }
 
-  /// Update user profile (firstName, lastName)
   Future<ApiResponse<AuthData>> updateProfile({
     String? firstName,
     String? lastName,
@@ -129,7 +129,6 @@ class AuthRepository {
     }
   }
 
-  /// Upload profile picture
   Future<ApiResponse<AuthData>> uploadProfilePicture(String filePath) async {
     try {
       final fileName = filePath.split('/').last;
@@ -145,6 +144,47 @@ class AuthRepository {
       return ApiResponse<AuthData>.fromJson(
         response.data,
         (json) => AuthData.fromJson(json as Map<String, dynamic>),
+      );
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<ApiResponse<UserStatsData>> getUserStats() async {
+    try {
+      final response = await _dioClient.dio.get(ApiPaths.userStats);
+      return ApiResponse<UserStatsData>.fromJson(
+        response.data,
+        (json) => UserStatsData.fromJson(json as Map<String, dynamic>),
+      );
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<ApiResponse<UserPreferences>> getPreferences() async {
+    try {
+      final response = await _dioClient.dio.get(ApiPaths.preferences);
+      return ApiResponse<UserPreferences>.fromJson(
+        response.data,
+        (json) => UserPreferences.fromJson(json as Map<String, dynamic>),
+      );
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<ApiResponse<UserPreferences>> updatePreferences(
+    UserPreferences prefs,
+  ) async {
+    try {
+      final response = await _dioClient.dio.put(
+        ApiPaths.preferences,
+        data: prefs.toJson(),
+      );
+      return ApiResponse<UserPreferences>.fromJson(
+        response.data,
+        (json) => UserPreferences.fromJson(json as Map<String, dynamic>),
       );
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);

@@ -6,6 +6,8 @@ import 'package:ai_chat_bot/features/chat/presentation/pages/usage_page.dart';
 import 'package:ai_chat_bot/features/profile/presentation/profile_screen.dart';
 import 'package:ai_chat_bot/features/bookmarks/presentation/pages/bookmarks_page.dart';
 import 'package:ai_chat_bot/features/discover/presentation/pages/discover_page.dart';
+import 'package:ai_chat_bot/features/prompts/presentation/pages/prompt_library_page.dart'; // Added import
+import 'package:ai_chat_bot/features/settings/presentation/pages/personalization_page.dart'; // Added import
 import 'package:go_router/go_router.dart';
 
 import 'route_names.dart';
@@ -81,6 +83,16 @@ final GoRouter appRouter = GoRouter(
       path: RoutePaths.discover,
       name: RouteNames.discover,
       builder: (context, state) => const DiscoverPage(),
+    ),
+    GoRoute(
+      path: RoutePaths.prompts,
+      name: RouteNames.prompts,
+      builder: (context, state) => const PromptLibraryPage(),
+    ),
+    GoRoute(
+      path: RoutePaths.personalization,
+      name: RouteNames.personalization,
+      builder: (context, state) => const PersonalizationPage(),
     ),
   ],
 );

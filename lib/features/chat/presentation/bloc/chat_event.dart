@@ -11,11 +11,21 @@ abstract class ChatEvent extends Equatable {
 class LoadConversations extends ChatEvent {
   final int page;
   final int size;
+  final String? folderId;
 
-  const LoadConversations({this.page = 0, this.size = 20});
+  const LoadConversations({this.page = 0, this.size = 20, this.folderId});
 
   @override
-  List<Object?> get props => [page, size];
+  List<Object?> get props => [page, size, folderId];
+}
+
+class SelectFolder extends ChatEvent {
+  final String? folderId;
+
+  const SelectFolder(this.folderId);
+
+  @override
+  List<Object?> get props => [folderId];
 }
 
 /// Select a conversation to view messages.
@@ -36,12 +46,15 @@ class SendMessage extends ChatEvent {
   final String? model;
   final double? temperature;
 
+  final bool useStream;
+
   const SendMessage({
     required this.message,
     this.conversationId,
     this.systemPrompt,
     this.model,
     this.temperature,
+    this.useStream = true,
   });
 
   @override
@@ -51,6 +64,7 @@ class SendMessage extends ChatEvent {
     systemPrompt,
     model,
     temperature,
+    useStream,
   ];
 }
 
@@ -78,6 +92,16 @@ class DeleteConversation extends ChatEvent {
 
   @override
   List<Object?> get props => [conversationId];
+}
+
+class MoveToFolder extends ChatEvent {
+  final String conversationId;
+  final String? folderId;
+
+  const MoveToFolder(this.conversationId, this.folderId);
+
+  @override
+  List<Object?> get props => [conversationId, folderId];
 }
 
 /// Load usage statistics.

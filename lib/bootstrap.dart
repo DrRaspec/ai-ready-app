@@ -4,6 +4,8 @@ import 'package:ai_chat_bot/core/storage/local_storage.dart';
 import 'package:ai_chat_bot/core/device/device_id_provider.dart';
 import 'package:ai_chat_bot/features/auth/data/auth_repository.dart';
 import 'package:ai_chat_bot/features/chat/data/chat_repository.dart';
+import 'package:ai_chat_bot/features/chat/data/folder_repository.dart';
+import 'package:ai_chat_bot/features/prompts/data/prompt_repository.dart';
 import 'package:ai_chat_bot/features/chat/data/streaming_service.dart';
 import 'package:ai_chat_bot/core/config/env_config.dart';
 import 'package:ai_chat_bot/core/di/dependency_injection.dart';
@@ -41,6 +43,12 @@ Future<void> setupDI() async {
   );
   di.registerLazySingleton<ChatRepository>(
     () => ChatRepository(di<DioClient>()),
+  );
+  di.registerLazySingleton<FolderRepository>(
+    () => FolderRepository(di<DioClient>()),
+  );
+  di.registerLazySingleton<PromptRepository>(
+    () => PromptRepository(di<DioClient>()),
   );
 
   // Services

@@ -56,5 +56,20 @@ class ApiPaths {
   static const String user = '$apiVersion/user';
   static const String profile = '$user/profile';
   static const String profilePicture = '$user/profile-picture';
+  static const String userStats = '$user/stats';
+  // Streaming
+  static const String streamChat = '$ai/stream';
+  static String streamChatWithConversation(String conversationId) =>
+      '$ai/stream/$conversationId';
+
+  // Folders
+  static const String folders = '$apiVersion/folders';
+  static String folder(String id) => '$folders/$id';
+
+  // Prompts
+  static const String prompts = '$apiVersion/prompts';
+  static String prompt(String id) => '$prompts/$id';
+
+  // User Preferences
   static const String preferences = '$apiVersion/users/me/preferences';
 }

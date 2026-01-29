@@ -10,7 +10,9 @@ import 'package:ai_chat_bot/features/chat/data/chat_repository.dart';
 import 'package:ai_chat_bot/features/chat/data/models/chat_request.dart';
 import 'package:ai_chat_bot/features/chat/data/models/conversation.dart';
 import 'package:ai_chat_bot/features/chat/data/models/message.dart';
-import 'package:ai_chat_bot/features/chat/data/models/chat_mode.dart'; // Re-added
+import 'package:ai_chat_bot/core/network/models/api_response.dart';
+import 'package:ai_chat_bot/features/chat/data/models/chat_response.dart';
+import 'package:ai_chat_bot/features/chat/data/models/chat_mode.dart';
 import 'chat_event.dart';
 import 'chat_state.dart';
 
@@ -35,6 +37,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<RegenerateMessage>(_onRegenerateMessage);
     on<RateMessage>(_onRateMessage);
     on<GetSummary>(_onGetSummary);
+    on<SelectFolder>(_onSelectFolder);
+    on<MoveToFolder>(_onMoveToFolder);
     on<PerformWebSearch>(_onPerformWebSearch);
   }
 
@@ -89,14 +93,25 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     emit(state.copyWith(chatMode: event.mode));
   }
 
+  void _onSelectFolder(SelectFolder event, Emitter<ChatState> emit) {
+    emit(
+      state.copyWith(
+        currentFolderId: event.folderId,
+        clearCurrentFolderId: event.folderId == null,
+        conversations: [],
+        hasMoreConversations: true,
+        conversationPage: 0,
+        isConversationsLoading: false, // Ensure we are ready to load
+      ),
+    );
+    add(const LoadConversations(page: 0));
+  }
+
   Future<void> _onLoadConversations(
     LoadConversations event,
     Emitter<ChatState> emit,
   ) async {
     // If we're already loading or strict refresh isn't requested and we don't have more, return.
-    // For now, assuming LoadConversations checks event.page normally.
-    // If event.page == 0, it's a refresh.
-
     final isRefresh = event.page == 0;
     if (!isRefresh && !state.hasMoreConversations) return;
     if (state.isConversationsLoading) return;
@@ -107,6 +122,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       final response = await _repository.getConversations(
         page: event.page,
         size: event.size,
+        folderId: state.currentFolderId, // Use state's current folder
       );
 
       if (response.success && response.data != null) {
@@ -206,24 +222,27 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       }
 
       final hasImage = state.attachedImagePath != null;
-      // Clear attachment after sending, before potential error,
-      // but usually better to clear after success?
-      // Existing logic cleared it early. We'll stick to that or move it.
-      // Let's clear it after request creation to simulate "sent".
       if (hasImage) {
+        // Clear attachment immediately to reflect UI state
         add(const DetachImage());
       }
 
-      String modeHint = 'CHAT'; // Default
+      // Check Mode and Model
+      String modeHint = 'CHAT';
       if (state.chatMode == ChatMode.imageGeneration) {
         modeHint = 'IMAGE_GEN';
+      } else if (state.chatMode == ChatMode.imageEditing) {
+        modeHint = 'IMAGE_EDIT';
       }
-      // You can add more mappings if needed, e.g. CODING -> CHAT or CODING
 
       final request = ChatRequest(
         message: event.message,
         systemPrompt: event.systemPrompt ?? (state.chatMode?.systemPrompt),
-        model: event.model,
+        model:
+            event.model ??
+            (state.chatMode == ChatMode.coding
+                ? 'code-llama'
+                : null), // Example fallback
         temperature: event.temperature,
         imageBase64: base64Image,
         imageMimeType: mimeType,
@@ -232,49 +251,125 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         forceTextChat: modeHint == 'CHAT',
       );
 
-      final response = await _repository.sendSmartMessage(request);
-
-      if (response.success && response.data != null) {
-        final chatResponse = response.data!;
-
-        // Logic to determine if we show the image
-        String? finalImageUrl = chatResponse.imageUrl;
-        final intent = chatResponse.detectedIntent;
-
-        if (intent == 'TEXT_CHAT' || intent == 'VISION_CHAT') {
-          // Force no image for text intents, even if backend sends one (safety)
-          finalImageUrl = null;
-        }
-
-        final assistantMessage = Message.assistantLocal(
-          chatResponse.response,
-          imageUrl: finalImageUrl,
-          detectedIntent: intent,
-          suggestedReplies: chatResponse.suggestedReplies,
+      // --- STREAMING LOGIC ---
+      if (event.useStream && modeHint != 'IMAGE_GEN') {
+        // Don't stream images
+        // 1. Create a placeholder assistant message
+        final tempAssistantId =
+            'stream_${DateTime.now().millisecondsSinceEpoch}';
+        var assistantMessage = Message.assistantLocal(
+          '', // start empty
+          id: tempAssistantId,
         );
 
-        final newConversationId =
-            chatResponse.conversationId ?? state.currentConversationId;
+        var currentMessages = [...updatedMessages, assistantMessage];
+        emit(state.copyWith(messages: currentMessages));
 
-        // Check if this is a new conversation BEFORE emitting new state
-        final wasNewConversation =
-            state.currentConversationId == null && newConversationId != null;
+        final stream = _repository.streamSmartMessage(request);
 
+        await emit.forEach(
+          stream,
+          onData: (String chunk) {
+            // Update the last message (assistant) with new chunk
+            final currentContent = assistantMessage.content + chunk;
+
+            assistantMessage = assistantMessage.copyWith(
+              content: currentContent,
+            );
+
+            // Re-construct list with updated message
+            // Need to find by ID in case user sent another message (rare in sync, but good practice)
+            // or just replace the last one since we are in a bloc handler (sequential?)
+            // actually emit.forEach keeps the handler active.
+            // We can safely assume it's the last one for this flow
+
+            // Note for efficient updates: finding index
+            final index = currentMessages.indexWhere(
+              (m) => m.id == tempAssistantId,
+            );
+            if (index != -1) {
+              currentMessages = List.from(currentMessages);
+              currentMessages[index] = assistantMessage;
+              return state.copyWith(messages: currentMessages);
+            }
+            return state;
+          },
+          onError: (e, stackTrace) {
+            AppLogger.e('Streaming error: $e');
+            return state.copyWith(
+              errorMessage: 'Streaming failed: ${e.toString()}',
+            );
+          },
+        );
+
+        // Finalize
         emit(
           state.copyWith(
-            messages: [...updatedMessages, assistantMessage],
-            currentConversationId: newConversationId,
             isSending: false,
-            lastAnimatedMessageId: assistantMessage.id,
+            lastAnimatedMessageId: tempAssistantId,
           ),
         );
-
-        // Reload conversations if this was a new conversation
-        if (wasNewConversation) {
-          add(const LoadConversations());
+        // Note: You might want to reload conversation to get the real ID from server if needed
+        // But for now, local ID works for display.
+        // Ideally, we fetch the conversation again to sync IDs.
+        if (state.currentConversationId != null) {
+          // Passive refresh to get real message IDs
+          add(SelectConversation(state.currentConversationId!));
         }
       } else {
-        emit(state.copyWith(isSending: false, errorMessage: response.message));
+        // --- STANDARD FUTURE LOGIC ---
+        final ApiResponse<ChatResponse> response;
+        if (modeHint == 'IMAGE_EDIT' && state.attachedImagePath != null) {
+          // Use the dedicated edit image endpoint
+          response = await _repository.editImage(
+            prompt: event.message,
+            imagePath: state.attachedImagePath!,
+          );
+        } else {
+          response = await _repository.sendSmartMessage(request);
+        }
+
+        if (response.success && response.data != null) {
+          final chatResponse = response.data!;
+
+          // Logic to determine if we show the image
+          String? finalImageUrl = chatResponse.imageUrl;
+          final intent = chatResponse.detectedIntent;
+
+          if (intent == 'TEXT_CHAT' || intent == 'VISION_CHAT') {
+            finalImageUrl = null;
+          }
+
+          final assistantMessage = Message.assistantLocal(
+            chatResponse.response,
+            imageUrl: finalImageUrl,
+            detectedIntent: intent,
+            suggestedReplies: chatResponse.suggestedReplies,
+          );
+
+          final newConversationId =
+              chatResponse.conversationId ?? state.currentConversationId;
+
+          final wasNewConversation =
+              state.currentConversationId == null && newConversationId != null;
+
+          emit(
+            state.copyWith(
+              messages: [...updatedMessages, assistantMessage],
+              currentConversationId: newConversationId,
+              isSending: false,
+              lastAnimatedMessageId: assistantMessage.id,
+            ),
+          );
+
+          if (wasNewConversation) {
+            add(const LoadConversations());
+          }
+        } else {
+          emit(
+            state.copyWith(isSending: false, errorMessage: response.message),
+          );
+        }
       }
     } on ApiException catch (e) {
       emit(state.copyWith(isSending: false, errorMessage: e.message));
@@ -311,6 +406,44 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         }).toList();
 
         emit(state.copyWith(conversations: updatedConversations));
+      }
+    } on ApiException catch (e) {
+      emit(state.copyWith(errorMessage: e.message));
+    }
+  }
+
+  Future<void> _onMoveToFolder(
+    MoveToFolder event,
+    Emitter<ChatState> emit,
+  ) async {
+    try {
+      final response = await _repository.moveConversationToFolder(
+        event.conversationId,
+        event.folderId,
+      );
+
+      if (response.success) {
+        // Update local conversation
+        final updatedConversations = state.conversations.map((c) {
+          if (c.id == event.conversationId) {
+            return c.copyWith(folderId: event.folderId);
+          }
+          return c;
+        }).toList();
+
+        // If we are currently filtering by a folder and the conversation moved out of it (or into another)
+        // we might want to refresh. But for now, simple local update is enough if we filter on backend.
+        // Actually, if we filter on backend, moving a conversation OUT of the current folder means it should disappear from the list.
+
+        List<Conversation> finalConversations = updatedConversations;
+        if (state.currentFolderId != null &&
+            state.currentFolderId != event.folderId) {
+          finalConversations = updatedConversations
+              .where((c) => c.folderId == state.currentFolderId)
+              .toList();
+        }
+
+        emit(state.copyWith(conversations: finalConversations));
       }
     } on ApiException catch (e) {
       emit(state.copyWith(errorMessage: e.message));

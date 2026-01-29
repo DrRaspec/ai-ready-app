@@ -373,6 +373,8 @@ class _MediaSheetState extends State<MediaSheet> {
         return Icons.short_text;
       case 'image':
         return Icons.image;
+      case 'brush':
+        return Icons.brush;
       default:
         return Icons.chat_bubble_outline;
     }

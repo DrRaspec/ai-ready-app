@@ -3,7 +3,9 @@ import 'package:ai_chat_bot/core/theme/theme_state.dart';
 import 'package:ai_chat_bot/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:ai_chat_bot/features/chat/data/chat_repository.dart';
 import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_bloc.dart';
-import 'package:ai_chat_bot/features/profile/presentation/bloc/profile_cubit.dart';
+import 'package:ai_chat_bot/features/profile/presentation/cubit/profile_cubit.dart';
+import 'package:ai_chat_bot/features/chat/presentation/bloc/folder_cubit.dart';
+import 'package:ai_chat_bot/features/chat/data/folder_repository.dart';
 import 'package:ai_chat_bot/features/bookmarks/presentation/bloc/bookmarks_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -43,6 +45,9 @@ class App extends StatelessWidget {
         BlocProvider(create: (_) => ChatBloc(di<ChatRepository>())),
         BlocProvider(create: (_) => ProfileCubit(di<AuthRepository>())),
         BlocProvider(create: (_) => BookmarksCubit()..loadBookmarks()),
+        BlocProvider(
+          create: (_) => FolderCubit(di<FolderRepository>())..loadFolders(),
+        ),
       ],
       child: BlocBuilder<ThemeCubit, ThemeState>(
         builder: (context, themeState) {
