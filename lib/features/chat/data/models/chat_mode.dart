@@ -30,6 +30,12 @@ enum ChatMode {
     label: 'Image Generator',
     systemPrompt: 'Describe the image you want to generate.',
     iconName: 'image',
+  ),
+  imageEditing(
+    id: 'image_editing',
+    label: 'Image Editor',
+    systemPrompt: 'Describe the edits you want to make to the attached image.',
+    iconName: 'brush',
   );
 
   final String id;

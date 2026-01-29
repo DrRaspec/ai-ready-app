@@ -1,0 +1,53 @@
+import 'package:ai_chat_bot/core/errors/api_exception.dart';
+import 'package:ai_chat_bot/core/network/api_paths.dart';
+import 'package:ai_chat_bot/core/network/dio_client.dart';
+import 'package:ai_chat_bot/core/network/models/api_response.dart';
+import 'package:ai_chat_bot/features/chat/data/models/folder.dart';
+import 'package:dio/dio.dart';
+
+class FolderRepository {
+  final DioClient _dioClient;
+
+  FolderRepository(DioClient dioClient) : _dioClient = dioClient;
+
+  /// Get all folders
+  Future<ApiResponse<List<Folder>>> getFolders() async {
+    try {
+      final response = await _dioClient.dio.get(ApiPaths.folders);
+      return ApiResponse<List<Folder>>.fromJson(
+        response.data,
+        (json) => (json as List)
+            .map((e) => Folder.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  /// Create a folder
+  Future<ApiResponse<Folder>> createFolder(String name, String color) async {
+    try {
+      final response = await _dioClient.dio.post(
+        ApiPaths.folders,
+        data: {'name': name, 'color': color},
+      );
+      return ApiResponse<Folder>.fromJson(
+        response.data,
+        (json) => Folder.fromJson(json as Map<String, dynamic>),
+      );
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  /// Delete a folder
+  Future<ApiResponse<void>> deleteFolder(String id) async {
+    try {
+      final response = await _dioClient.dio.delete(ApiPaths.folder(id));
+      return ApiResponse<void>.fromJson(response.data, (_) {});
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+}

@@ -122,7 +122,13 @@ class _BookmarksPageState extends State<BookmarksPage> {
                 },
                 onTap: () {
                   if (bookmark.conversationId != null) {
-                    context.push('/chat', extra: bookmark.conversationId);
+                    context.push(
+                      '/chat',
+                      extra: {
+                        'conversationId': bookmark.conversationId,
+                        'messageId': bookmark.id,
+                      },
+                    );
                   }
                 },
               );

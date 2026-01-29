@@ -8,6 +8,8 @@ class Conversation {
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
+  final String? folderId;
+
   const Conversation({
     required this.id,
     this.title,
@@ -16,6 +18,7 @@ class Conversation {
     this.createdAt,
     this.updatedAt,
     this.isPinned = false,
+    this.folderId,
   });
 
   factory Conversation.fromJson(Map<String, dynamic> json) => Conversation(
@@ -30,6 +33,7 @@ class Conversation {
         ? DateTime.tryParse(json['updatedAt'] as String)
         : null,
     isPinned: json['isPinned'] as bool? ?? false,
+    folderId: json['folderId'] as String?,
   );
 
   Conversation copyWith({
@@ -40,6 +44,7 @@ class Conversation {
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? isPinned,
+    String? folderId,
   }) {
     return Conversation(
       id: id ?? this.id,
@@ -49,6 +54,7 @@ class Conversation {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       isPinned: isPinned ?? this.isPinned,
+      folderId: folderId ?? this.folderId,
     );
   }
 }

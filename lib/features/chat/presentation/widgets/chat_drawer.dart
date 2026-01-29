@@ -1,10 +1,13 @@
 import 'package:ai_chat_bot/features/chat/data/models/conversation.dart';
+import 'package:ai_chat_bot/features/chat/data/models/chat_mode.dart';
 import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_event.dart';
 import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:ai_chat_bot/features/chat/presentation/bloc/folder_cubit.dart';
+import 'package:ai_chat_bot/features/chat/presentation/bloc/folder_state.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
 class ChatDrawer extends StatefulWidget {
@@ -79,6 +82,116 @@ class _ChatDrawerState extends State<ChatDrawer> {
                   ),
                   const SizedBox(height: 16),
 
+                  // Images Menu Item (like ChatGPT mobile app)
+                  BlocBuilder<ChatBloc, ChatState>(
+                    builder: (context, state) {
+                      final isImageMode =
+                          state.chatMode == ChatMode.imageGeneration;
+                      return InkWell(
+                        onTap: () {
+                          context.read<ChatBloc>().add(
+                            const SetChatMode(ChatMode.imageGeneration),
+                          );
+                          context.read<ChatBloc>().add(const NewConversation());
+                          context.pop();
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isImageMode
+                                ? colorScheme.primaryContainer.withValues(
+                                    alpha: 0.4,
+                                  )
+                                : colorScheme.surfaceContainerHighest
+                                      .withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(12),
+                            border: isImageMode
+                                ? Border.all(color: colorScheme.primary)
+                                : null,
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.primary.withValues(
+                                    alpha: 0.15,
+                                  ),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  Icons.auto_awesome,
+                                  size: 20,
+                                  color: colorScheme.primary,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                'Images',
+                                style: theme.textTheme.bodyLarge?.copyWith(
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Prompt Library Item
+                  InkWell(
+                    onTap: () {
+                      context.push('/prompts');
+                      context.pop();
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHighest.withValues(
+                          alpha: 0.3,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              Icons.lightbulb_outline,
+                              size: 20,
+                              color: Colors.amber,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Prompt Library',
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  const SizedBox(height: 12),
+
                   // New Conversation Button
                   SizedBox(
                     width: double.infinity,
@@ -99,6 +212,64 @@ class _ChatDrawerState extends State<ChatDrawer> {
                   ),
                 ],
               ),
+            ),
+
+            // Folders List
+            BlocBuilder<FolderCubit, FolderState>(
+              builder: (context, folderState) {
+                if (folderState is FolderLoaded) {
+                  return BlocBuilder<ChatBloc, ChatState>(
+                    buildWhen: (p, c) => p.currentFolderId != c.currentFolderId,
+                    builder: (context, chatState) {
+                      return Container(
+                        height: 40,
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          children: [
+                            _buildFolderChip(
+                              context,
+                              null,
+                              'All',
+                              chatState.currentFolderId == null,
+                            ),
+                            const SizedBox(width: 8),
+                            ...folderState.folders.map((f) {
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: _buildFolderChip(
+                                  context,
+                                  f.id,
+                                  f.name,
+                                  chatState.currentFolderId == f.id,
+                                  color: f.color,
+                                  isFolder: true,
+                                ),
+                              );
+                            }),
+                            IconButton.filledTonal(
+                              icon: const Icon(
+                                Icons.create_new_folder_outlined,
+                                size: 18,
+                              ),
+                              onPressed: () => _showCreateFolderDialog(context),
+                              constraints: const BoxConstraints.tightFor(
+                                width: 40,
+                                height: 40,
+                              ),
+                              style: IconButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                }
+                return const SizedBox.shrink();
+              },
             ),
 
             const Divider(height: 1),
@@ -235,6 +406,19 @@ class _ChatDrawerState extends State<ChatDrawer> {
 
             const Divider(height: 1),
 
+            // Footer (Shortcuts)
+            ListTile(
+              dense: true,
+              leading: const Icon(Icons.library_books_outlined),
+              title: const Text('Prompt Library'),
+              onTap: () {
+                context.pop(); // Close drawer
+                context.push('/prompts');
+              },
+            ),
+
+            const Divider(height: 1),
+
             // Footer (Profile)
             ListTile(
               contentPadding: const EdgeInsets.symmetric(
@@ -279,6 +463,14 @@ class _ChatDrawerState extends State<ChatDrawer> {
               onTap: () {
                 Navigator.pop(context);
                 _showRenameDialog(context, conversation);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.drive_file_move_outlined),
+              title: const Text('Move to Folder'),
+              onTap: () {
+                Navigator.pop(context);
+                _showMoveToFolderDialog(context, conversation);
               },
             ),
             ListTile(
@@ -355,6 +547,131 @@ class _ChatDrawerState extends State<ChatDrawer> {
               Navigator.pop(ctx);
             },
             child: const Text('Rename'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFolderChip(
+    BuildContext context,
+    String? id,
+    String label,
+    bool isSelected, {
+    String? color,
+    bool isFolder = false,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return ActionChip(
+      label: Text(label),
+      avatar: isFolder
+          ? null
+          : null, // Icon(Icons.folder_open, size: 16, color: isSelected ? colorScheme.onPrimary : colorScheme.primary)
+      labelStyle: TextStyle(
+        color: isSelected ? colorScheme.onPrimary : colorScheme.onSurface,
+        fontSize: 12,
+      ),
+      backgroundColor: isSelected ? colorScheme.primary : null,
+      side: isSelected ? BorderSide.none : null,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      onPressed: () {
+        context.read<ChatBloc>().add(SelectFolder(id));
+      },
+      // Long press to edit/delete folder
+      // We assume id != null is a folder (except "All")
+      // Actually "All" has id null.
+    );
+  }
+
+  void _showCreateFolderDialog(BuildContext context) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('New Folder'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'Folder Name',
+            hintText: 'e.g., Work, Personal',
+          ),
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (controller.text.isNotEmpty) {
+                context.read<FolderCubit>().createFolder(
+                  controller.text,
+                  'blue',
+                ); // Default color
+              }
+              Navigator.pop(ctx);
+            },
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showMoveToFolderDialog(
+    BuildContext context,
+    Conversation conversation,
+  ) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Move to Folder'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: BlocBuilder<FolderCubit, FolderState>(
+            builder: (context, state) {
+              if (state is FolderLoaded) {
+                return ListView(
+                  shrinkWrap: true,
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.folder_off_outlined),
+                      title: const Text('No Folder (Uncategorized)'),
+                      onTap: () {
+                        context.read<ChatBloc>().add(
+                          MoveToFolder(conversation.id, null),
+                        );
+                        Navigator.pop(ctx);
+                      },
+                    ),
+                    const Divider(),
+                    ...state.folders.map(
+                      (folder) => ListTile(
+                        leading: const Icon(Icons.folder_outlined),
+                        title: Text(folder.name),
+                        onTap: () {
+                          context.read<ChatBloc>().add(
+                            MoveToFolder(conversation.id, folder.id),
+                          );
+                          Navigator.pop(ctx);
+                        },
+                      ),
+                    ),
+                  ],
+                );
+              }
+              return const Center(child: CircularProgressIndicator());
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
           ),
         ],
       ),

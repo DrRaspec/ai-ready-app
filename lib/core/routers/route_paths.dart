@@ -8,4 +8,6 @@ class RoutePaths {
   static const profile = '/profile';
   static const bookmarks = '/bookmarks';
   static const discover = '/discover';
+  static const prompts = '/prompts';
+  static const personalization = '/personalization';
 }

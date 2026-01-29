@@ -1,9 +1,8 @@
 import 'dart:io';
 import 'package:ai_chat_bot/core/storage/local_storage.dart';
 import 'package:ai_chat_bot/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_bloc.dart';
-import 'package:ai_chat_bot/features/profile/presentation/bloc/profile_cubit.dart';
-import 'package:ai_chat_bot/features/profile/presentation/bloc/profile_state.dart';
+import 'package:ai_chat_bot/features/profile/presentation/cubit/profile_cubit.dart';
+import 'package:ai_chat_bot/features/profile/presentation/cubit/profile_state.dart';
 import 'package:ai_chat_bot/features/settings/presentation/widgets/settings_modal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -29,10 +28,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _loadProfile() {
-    final chatState = context.read<ChatBloc>().state;
-    context.read<ProfileCubit>().loadProfile(
-      conversationCount: chatState.conversations.length,
-    );
+    context.read<ProfileCubit>().loadProfile();
   }
 
   Future<void> _pickAvatar() async {
@@ -184,123 +180,118 @@ class _ProfileScreenState extends State<ProfileScreen> {
           if (authState is Authenticated) {
             final user = authState.authData;
 
-            return BlocConsumer<ProfileCubit, ProfileState>(
+            return BlocListener<ProfileCubit, ProfileState>(
               listener: (context, profileState) {
-                // Show achievement unlocked celebration
                 if (profileState.newlyUnlocked.isNotEmpty) {
                   _showAchievementDialog(profileState.newlyUnlocked);
                   context.read<ProfileCubit>().clearNewlyUnlocked();
                 }
-                // Show error if any
-                if (profileState.errorMessage != null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(profileState.errorMessage!)),
+              },
+              child: BlocBuilder<ProfileCubit, ProfileState>(
+                builder: (context, profileState) {
+                  // Use profile state name if available, otherwise auth data
+                  final displayFirstName =
+                      profileState.firstName ?? user.firstName ?? '';
+                  final displayLastName =
+                      profileState.lastName ?? user.lastName ?? '';
+                  final fullName = '$displayFirstName $displayLastName'.trim();
+                  final initials =
+                      '${displayFirstName.isNotEmpty ? displayFirstName[0] : ''}'
+                              '${displayLastName.isNotEmpty ? displayLastName[0] : ''}'
+                          .toUpperCase();
+
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      children: [
+                        // Avatar with edit button
+                        _buildAvatarSection(
+                          profileState.avatarPath,
+                          profileState.profilePictureUrl,
+                          initials,
+                          colorScheme,
+                          profileState.isUploading,
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Name and Email with Edit button
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              fullName.isNotEmpty ? fullName : 'User',
+                              style: theme.textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              onPressed: () =>
+                                  _showEditProfileDialog(context, profileState),
+                              icon: Icon(
+                                Icons.edit_outlined,
+                                size: 20,
+                                color: colorScheme.primary,
+                              ),
+                              tooltip: 'Edit Profile',
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ],
+                        ),
+                        Text(
+                          user.email ?? '',
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+
+                        // Stats Section
+                        _buildStatsSection(profileState, theme, colorScheme),
+                        const SizedBox(height: 24),
+
+                        // Achievements Section
+                        _buildAchievementsSection(
+                          profileState,
+                          theme,
+                          colorScheme,
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Quick Actions
+                        _buildQuickActionsSection(theme, colorScheme),
+                        const SizedBox(height: 32),
+
+                        // Logout Button
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: () {
+                              context.read<AuthBloc>().add(LogoutRequested());
+                            },
+                            style: FilledButton.styleFrom(
+                              backgroundColor: colorScheme.error,
+                              foregroundColor: colorScheme.onError,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            icon: const Icon(Icons.logout),
+                            label: const Text(
+                              'Logout',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   );
-                }
-              },
-              builder: (context, profileState) {
-                // Use profile state name if available, otherwise auth data
-                final displayFirstName =
-                    profileState.firstName ?? user.firstName ?? '';
-                final displayLastName =
-                    profileState.lastName ?? user.lastName ?? '';
-                final fullName = '$displayFirstName $displayLastName'.trim();
-                final initials =
-                    '${displayFirstName.isNotEmpty ? displayFirstName[0] : ''}'
-                            '${displayLastName.isNotEmpty ? displayLastName[0] : ''}'
-                        .toUpperCase();
-
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    children: [
-                      // Avatar with edit button
-                      _buildAvatarSection(
-                        profileState.avatarPath,
-                        profileState.profilePictureUrl,
-                        initials,
-                        colorScheme,
-                        profileState.isUploading,
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Name and Email with Edit button
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            fullName.isNotEmpty ? fullName : 'User',
-                            style: theme.textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            onPressed: () =>
-                                _showEditProfileDialog(context, profileState),
-                            icon: Icon(
-                              Icons.edit_outlined,
-                              size: 20,
-                              color: colorScheme.primary,
-                            ),
-                            tooltip: 'Edit Profile',
-                            visualDensity: VisualDensity.compact,
-                          ),
-                        ],
-                      ),
-                      Text(
-                        user.email ?? '',
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-
-                      // Stats Section
-                      _buildStatsSection(profileState, theme, colorScheme),
-                      const SizedBox(height: 24),
-
-                      // Achievements Section
-                      _buildAchievementsSection(
-                        profileState,
-                        theme,
-                        colorScheme,
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Quick Actions
-                      _buildQuickActionsSection(theme, colorScheme),
-                      const SizedBox(height: 32),
-
-                      // Logout Button
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          onPressed: () {
-                            context.read<AuthBloc>().add(LogoutRequested());
-                          },
-                          style: FilledButton.styleFrom(
-                            backgroundColor: colorScheme.error,
-                            foregroundColor: colorScheme.onError,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          icon: const Icon(Icons.logout),
-                          label: const Text(
-                            'Logout',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
+                },
+              ),
             );
           }
 
@@ -402,6 +393,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  String _formatStat(int value) {
+    return value > 99 ? '99+' : value.toString();
+  }
+
   Widget _buildStatsSection(
     ProfileState profileState,
     ThemeData theme,
@@ -437,7 +432,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Expanded(
                 child: _StatCard(
                   icon: Icons.chat_bubble_outline_rounded,
-                  value: '${profileState.conversationCount}',
+                  value: _formatStat(profileState.conversationCount),
                   label: 'Conversations',
                   color: Colors.blue,
                 ),
@@ -446,7 +441,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Expanded(
                 child: _StatCard(
                   icon: Icons.message_outlined,
-                  value: '${profileState.messageCount}',
+                  value: _formatStat(profileState.messageCount),
                   label: 'Messages',
                   color: Colors.green,
                 ),
@@ -455,7 +450,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Expanded(
                 child: _StatCard(
                   icon: Icons.emoji_events_outlined,
-                  value: '${profileState.unlockedAchievements.length}',
+                  value: _formatStat(profileState.unlockedAchievements.length),
                   label: 'Badges',
                   color: Colors.orange,
                 ),
@@ -565,6 +560,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             title: 'Discover',
             subtitle: 'AI tips and prompts',
             onTap: () => context.push('/discover'),
+          ),
+          _ActionTile(
+            icon: Icons.person_outline,
+            title: 'Personalization',
+            subtitle: 'AI Persona & Preferences',
+            onTap: () => context.push('/personalization'),
           ),
           _ActionTile(
             icon: Icons.palette_outlined,

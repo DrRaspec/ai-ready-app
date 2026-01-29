@@ -43,8 +43,17 @@ class ThemeCubit extends Cubit<ThemeState> {
   Future<void> toggleTheme() async {
     if (state.mode == ThemeMode.light) {
       await dark();
-    } else {
+    } else if (state.mode == ThemeMode.dark) {
       await light();
+    } else {
+      // System mode: switch based on current platform brightness
+      final brightness =
+          WidgetsBinding.instance.platformDispatcher.platformBrightness;
+      if (brightness == Brightness.light) {
+        await dark();
+      } else {
+        await light();
+      }
     }
   }
 
