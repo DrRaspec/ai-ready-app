@@ -1,4 +1,5 @@
 import 'package:ai_chat_bot/app/app.dart';
+import 'package:ai_chat_bot/core/di/dependency_injection.dart';
 import 'package:ai_chat_bot/app/app_initializer.dart';
 import 'package:ai_chat_bot/features/settings/presentation/bloc/settings_state.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +10,8 @@ Future<void> main() async {
   await AppInitializer.initialize();
 
   final prefs = await SharedPreferences.getInstance();
+  di.registerSingleton<SharedPreferences>(prefs);
+
   final savedThemeMode = prefs.getString('theme_mode');
   final initialTheme = savedThemeMode != null
       ? ThemeMode.values.firstWhere(

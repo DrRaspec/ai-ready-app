@@ -9,6 +9,10 @@ import 'package:ai_chat_bot/features/chat/data/folder_repository.dart';
 import 'package:ai_chat_bot/features/bookmarks/presentation/bloc/bookmarks_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:ai_chat_bot/features/gamification/data/gamification_repository.dart';
+import 'package:ai_chat_bot/features/gamification/presentation/bloc/gamification_cubit.dart';
+import 'package:ai_chat_bot/features/gamification/presentation/widgets/achievement_listener.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/theme/app_theme.dart';
 import '../core/theme/theme_cubit.dart';
@@ -48,6 +52,12 @@ class App extends StatelessWidget {
         BlocProvider(
           create: (_) => FolderCubit(di<FolderRepository>())..loadFolders(),
         ),
+        BlocProvider(
+          create: (_) => GamificationCubit(
+            di<GamificationRepository>(),
+            di<SharedPreferences>(),
+          )..checkStatus(),
+        ),
       ],
       child: BlocBuilder<ThemeCubit, ThemeState>(
         builder: (context, themeState) {
@@ -67,7 +77,7 @@ class App extends StatelessWidget {
                         settingsState.textScaleFactor,
                       ),
                     ),
-                    child: child!,
+                    child: AchievementListener(child: child!),
                   );
                 },
               );

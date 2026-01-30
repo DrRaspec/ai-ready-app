@@ -8,12 +8,7 @@ class ApiException implements Exception {
   final String? error;
   final Map<String, dynamic>? details;
 
-  ApiException({
-    required this.message,
-    this.status,
-    this.error,
-    this.details,
-  });
+  ApiException({required this.message, this.status, this.error, this.details});
 
   factory ApiException.fromDioException(DioException e) {
     switch (e.type) {
@@ -30,21 +25,30 @@ class ApiException implements Exception {
 
         if (data is String) {
           try {
-            data = data.isNotEmpty ? Map<String, dynamic>.from(json.decode(data) as Map) : null;
+            data = data.isNotEmpty
+                ? Map<String, dynamic>.from(json.decode(data) as Map)
+                : null;
           } catch (_) {
             data = null;
           }
         }
 
         if (data is Map<String, dynamic>) {
-          final message = (data['message'] as String?) ?? (data['error'] as String?) ?? '';
+          var message =
+              (data['message'] as String?) ?? (data['error'] as String?) ?? '';
           Map<String, dynamic>? details;
           if (data['details'] is Map<String, dynamic>) {
             details = data['details'] as Map<String, dynamic>;
           } else if (data['details'] is List) {
             // Convert list of errors to a map with numeric keys
             final list = data['details'] as List;
-            details = {for (var i = 0; i < list.length; i++) i.toString(): list[i]};
+            details = {
+              for (var i = 0; i < list.length; i++) i.toString(): list[i],
+            };
+          }
+
+          if (message.contains('Server returned HTTP response code:')) {
+            message = 'Service temporarily unavailable (Protocol Error)';
           }
 
           return ApiException(
@@ -60,19 +64,25 @@ class ApiException implements Exception {
           status: response?.statusCode,
         );
       case DioExceptionType.cancel:
-        return ApiException(
-          message: 'Request cancelled',
-          status: null,
-        );
+        return ApiException(message: 'Request cancelled', status: null);
       case DioExceptionType.connectionError:
         return ApiException(
           message: 'No internet connection. Please check your network.',
           status: null,
         );
       default:
+        final error = e.error;
+        if (error is FormatException) {
+          return ApiException(
+            message:
+                'Server returned an invalid response. Please try again later.',
+            status: e.response?.statusCode,
+            error: 'FormatException',
+          );
+        }
         return ApiException(
           message: e.message ?? 'An unexpected error occurred',
-          status: null,
+          status: e.response?.statusCode,
         );
     }
   }

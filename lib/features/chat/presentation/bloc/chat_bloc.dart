@@ -24,6 +24,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       super(const ChatState()) {
     on<LoadConversations>(_onLoadConversations);
     on<SelectConversation>(_onSelectConversation);
+    on<RefreshMessages>(_onRefreshMessages);
     on<SendMessage>(_onSendMessage);
     on<NewConversation>(_onNewConversation);
     on<RenameConversation>(_onRenameConversation);
@@ -40,6 +41,14 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<SelectFolder>(_onSelectFolder);
     on<MoveToFolder>(_onMoveToFolder);
     on<PerformWebSearch>(_onPerformWebSearch);
+    on<SearchConversations>(_onSearchConversations);
+  }
+
+  void _onSearchConversations(
+    SearchConversations event,
+    Emitter<ChatState> emit,
+  ) {
+    emit(state.copyWith(searchQuery: event.query));
   }
 
   Future<void> _onEditMessage(
@@ -191,6 +200,23 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     }
   }
 
+  Future<void> _onRefreshMessages(
+    RefreshMessages event,
+    Emitter<ChatState> emit,
+  ) async {
+    try {
+      final response = await _repository.getConversationMessages(
+        event.conversationId,
+      );
+
+      if (response.success && response.data != null) {
+        emit(state.copyWith(messages: response.data!));
+      }
+    } on ApiException catch (e) {
+      AppLogger.e('Silent refresh failed: ${e.message}');
+    }
+  }
+
   Future<void> _onSendMessage(
     SendMessage event,
     Emitter<ChatState> emit,
@@ -241,13 +267,14 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         model:
             event.model ??
             (state.chatMode == ChatMode.coding
-                ? 'code-llama'
+                ? 'llama-3.1-8b-instant'
                 : null), // Example fallback
         temperature: event.temperature,
         imageBase64: base64Image,
         imageMimeType: mimeType,
         modeHint: modeHint,
         conversationId: state.currentConversationId,
+        folderId: state.currentFolderId,
         forceTextChat: modeHint == 'CHAT',
       );
 
@@ -303,18 +330,13 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         );
 
         // Finalize
-        emit(
-          state.copyWith(
-            isSending: false,
-            lastAnimatedMessageId: tempAssistantId,
-          ),
-        );
+        emit(state.copyWith(isSending: false));
         // Note: You might want to reload conversation to get the real ID from server if needed
         // But for now, local ID works for display.
         // Ideally, we fetch the conversation again to sync IDs.
         if (state.currentConversationId != null) {
           // Passive refresh to get real message IDs
-          add(SelectConversation(state.currentConversationId!));
+          add(RefreshMessages(state.currentConversationId!));
         }
       } else {
         // --- STANDARD FUTURE LOGIC ---
@@ -331,6 +353,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
         if (response.success && response.data != null) {
           final chatResponse = response.data!;
+          AppLogger.d('AI Model Used: ${chatResponse.model ?? "Unknown"}');
 
           // Logic to determine if we show the image
           String? finalImageUrl = chatResponse.imageUrl;
@@ -353,10 +376,24 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           final wasNewConversation =
               state.currentConversationId == null && newConversationId != null;
 
+          // Automatic Title Renaming logic
+          List<Conversation> updatedConversations = state.conversations;
+          if (newConversationId != null && chatResponse.title != null) {
+            updatedConversations = state.conversations.map((c) {
+              if (c.id == newConversationId) {
+                return c.copyWith(title: chatResponse.title);
+              }
+              return c;
+            }).toList();
+          }
+
           emit(
             state.copyWith(
               messages: [...updatedMessages, assistantMessage],
               currentConversationId: newConversationId,
+              conversations: chatResponse.title != null
+                  ? updatedConversations
+                  : null,
               isSending: false,
               lastAnimatedMessageId: assistantMessage.id,
             ),

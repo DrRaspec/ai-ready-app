@@ -76,8 +76,8 @@ class _ChatDrawerState extends State<ChatDrawer> {
                       ),
                       isDense: true,
                     ),
-                    onTap: () {
-                      // TODO: Implement search functionality
+                    onChanged: (value) {
+                      context.read<ChatBloc>().add(SearchConversations(value));
                     },
                   ),
                   const SizedBox(height: 16),
@@ -147,8 +147,8 @@ class _ChatDrawerState extends State<ChatDrawer> {
                   // Prompt Library Item
                   InkWell(
                     onTap: () {
-                      context.push('/prompts');
                       context.pop();
+                      context.push('/prompts');
                     },
                     borderRadius: BorderRadius.circular(12),
                     child: Container(
@@ -278,6 +278,8 @@ class _ChatDrawerState extends State<ChatDrawer> {
             Expanded(
               child: BlocBuilder<ChatBloc, ChatState>(
                 builder: (context, state) {
+                  final conversations = state.visibleConversations;
+
                   if (state.isConversationsLoading &&
                       state.conversations.isEmpty) {
                     return Skeletonizer(
@@ -290,19 +292,23 @@ class _ChatDrawerState extends State<ChatDrawer> {
                     );
                   }
 
-                  if (state.conversations.isEmpty) {
+                  if (conversations.isEmpty) {
                     return Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            Icons.chat_bubble_outline,
+                            state.isSearching
+                                ? Icons.search_off
+                                : Icons.chat_bubble_outline,
                             size: 48,
                             color: colorScheme.outline.withValues(alpha: 0.5),
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'No conversations yet',
+                            state.isSearching
+                                ? 'No matching conversations'
+                                : 'No conversations yet',
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: colorScheme.onSurfaceVariant,
                             ),
@@ -320,6 +326,8 @@ class _ChatDrawerState extends State<ChatDrawer> {
                       onNotification: (scrollInfo) {
                         if (!state.isConversationsLoading &&
                             state.hasMoreConversations &&
+                            !state
+                                .isSearching && // Disable pagination when searching
                             scrollInfo.metrics.pixels >=
                                 scrollInfo.metrics.maxScrollExtent * 0.8) {
                           context.read<ChatBloc>().add(
@@ -331,10 +339,12 @@ class _ChatDrawerState extends State<ChatDrawer> {
                       child: ListView.builder(
                         padding: const EdgeInsets.symmetric(vertical: 8),
                         itemCount:
-                            state.conversations.length +
-                            (state.hasMoreConversations ? 1 : 0),
+                            conversations.length +
+                            (state.hasMoreConversations && !state.isSearching
+                                ? 1
+                                : 0),
                         itemBuilder: (context, index) {
-                          if (index >= state.conversations.length) {
+                          if (index >= conversations.length) {
                             return Padding(
                               padding: const EdgeInsets.all(16.0),
                               child: Center(
@@ -350,7 +360,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
                             );
                           }
 
-                          final conversation = state.conversations[index];
+                          final conversation = conversations[index];
                           final isSelected =
                               conversation.id == state.currentConversationId;
 
@@ -387,6 +397,10 @@ class _ChatDrawerState extends State<ChatDrawer> {
                             onLongPress: () =>
                                 _showOptionsSheet(context, conversation),
                             onTap: () {
+                              // Reset search on select
+                              context.read<ChatBloc>().add(
+                                const SearchConversations(''),
+                              );
                               if (conversation.id !=
                                   state.currentConversationId) {
                                 context.read<ChatBloc>().add(
@@ -402,19 +416,6 @@ class _ChatDrawerState extends State<ChatDrawer> {
                   );
                 },
               ),
-            ),
-
-            const Divider(height: 1),
-
-            // Footer (Shortcuts)
-            ListTile(
-              dense: true,
-              leading: const Icon(Icons.library_books_outlined),
-              title: const Text('Prompt Library'),
-              onTap: () {
-                context.pop(); // Close drawer
-                context.push('/prompts');
-              },
             ),
 
             const Divider(height: 1),
@@ -453,7 +454,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
   void _showOptionsSheet(BuildContext context, Conversation conversation) {
     showModalBottomSheet(
       context: context,
-      builder: (context) => SafeArea(
+      builder: (sheetContext) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -461,7 +462,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
               leading: const Icon(Icons.edit_outlined),
               title: const Text('Rename'),
               onTap: () {
-                Navigator.pop(context);
+                Navigator.pop(sheetContext);
                 _showRenameDialog(context, conversation);
               },
             ),
@@ -469,7 +470,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
               leading: const Icon(Icons.drive_file_move_outlined),
               title: const Text('Move to Folder'),
               onTap: () {
-                Navigator.pop(context);
+                Navigator.pop(sheetContext);
                 _showMoveToFolderDialog(context, conversation);
               },
             ),
@@ -477,7 +478,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
               leading: const Icon(Icons.delete_outline, color: Colors.red),
               title: const Text('Delete', style: TextStyle(color: Colors.red)),
               onTap: () {
-                Navigator.pop(context);
+                Navigator.pop(sheetContext);
                 _showDeleteDialog(context, conversation);
               },
             ),
@@ -502,7 +503,8 @@ class _ChatDrawerState extends State<ChatDrawer> {
           ),
           FilledButton(
             onPressed: () {
-              context.read<ChatBloc>().add(DeleteConversation(conversation.id));
+              final chatBloc = context.read<ChatBloc>();
+              chatBloc.add(DeleteConversation(conversation.id));
               Navigator.pop(ctx);
             },
             style: FilledButton.styleFrom(
@@ -540,7 +542,8 @@ class _ChatDrawerState extends State<ChatDrawer> {
           FilledButton(
             onPressed: () {
               if (controller.text.isNotEmpty) {
-                context.read<ChatBloc>().add(
+                final chatBloc = context.read<ChatBloc>();
+                chatBloc.add(
                   RenameConversation(conversation.id, controller.text),
                 );
               }
@@ -564,24 +567,157 @@ class _ChatDrawerState extends State<ChatDrawer> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return ActionChip(
-      label: Text(label),
-      avatar: isFolder
-          ? null
-          : null, // Icon(Icons.folder_open, size: 16, color: isSelected ? colorScheme.onPrimary : colorScheme.primary)
-      labelStyle: TextStyle(
-        color: isSelected ? colorScheme.onPrimary : colorScheme.onSurface,
-        fontSize: 12,
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onLongPress: (id != null && isFolder)
+              ? () => _showFolderOptions(context, id, label)
+              : null,
+          onTap: () {
+            context.read<ChatBloc>().add(SelectFolder(id));
+          },
+          borderRadius: BorderRadius.circular(20),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? colorScheme.primary
+                  : colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              label,
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: isSelected
+                    ? colorScheme.onPrimary
+                    : colorScheme.onSurface,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+              ),
+            ),
+          ),
+        ),
       ),
-      backgroundColor: isSelected ? colorScheme.primary : null,
-      side: isSelected ? BorderSide.none : null,
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      onPressed: () {
-        context.read<ChatBloc>().add(SelectFolder(id));
-      },
-      // Long press to edit/delete folder
-      // We assume id != null is a folder (except "All")
-      // Actually "All" has id null.
+    );
+  }
+
+  void _showFolderOptions(
+    BuildContext context,
+    String folderId,
+    String folderName,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                folderName,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: const Text('Rename Folder'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _showRenameFolderDialog(context, folderId, folderName);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: Colors.red),
+              title: const Text(
+                'Delete Folder',
+                style: TextStyle(color: Colors.red),
+              ),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _showDeleteFolderDialog(context, folderId, folderName);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showRenameFolderDialog(
+    BuildContext context,
+    String folderId,
+    String currentName,
+  ) {
+    final controller = TextEditingController(text: currentName);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Rename Folder'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'Folder Name',
+            hintText: 'Enter new name',
+          ),
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (controller.text.isNotEmpty) {
+                final folderCubit = context.read<FolderCubit>();
+                folderCubit.renameFolder(folderId, controller.text);
+              }
+              Navigator.pop(ctx);
+            },
+            child: const Text('Rename'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteFolderDialog(
+    BuildContext context,
+    String folderId,
+    String folderName,
+  ) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Folder'),
+        content: Text(
+          'Are you sure you want to delete folder "$folderName"?\nConversations inside will be moved to "All".',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final folderCubit = context.read<FolderCubit>();
+              folderCubit.deleteFolder(folderId);
+              // Also update chat bloc to reset folder selection if needed
+              // context.read<ChatBloc>().add(const SelectFolder(null)); // Optional: reset selection
+              Navigator.pop(ctx);
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -608,7 +744,8 @@ class _ChatDrawerState extends State<ChatDrawer> {
           FilledButton(
             onPressed: () {
               if (controller.text.isNotEmpty) {
-                context.read<FolderCubit>().createFolder(
+                final folderCubit = context.read<FolderCubit>();
+                folderCubit.createFolder(
                   controller.text,
                   'blue',
                 ); // Default color
@@ -642,9 +779,8 @@ class _ChatDrawerState extends State<ChatDrawer> {
                       leading: const Icon(Icons.folder_off_outlined),
                       title: const Text('No Folder (Uncategorized)'),
                       onTap: () {
-                        context.read<ChatBloc>().add(
-                          MoveToFolder(conversation.id, null),
-                        );
+                        final chatBloc = context.read<ChatBloc>();
+                        chatBloc.add(MoveToFolder(conversation.id, null));
                         Navigator.pop(ctx);
                       },
                     ),
@@ -654,7 +790,8 @@ class _ChatDrawerState extends State<ChatDrawer> {
                         leading: const Icon(Icons.folder_outlined),
                         title: Text(folder.name),
                         onTap: () {
-                          context.read<ChatBloc>().add(
+                          final chatBloc = context.read<ChatBloc>();
+                          chatBloc.add(
                             MoveToFolder(conversation.id, folder.id),
                           );
                           Navigator.pop(ctx);

@@ -7,6 +7,7 @@ import 'package:ai_chat_bot/features/chat/data/chat_repository.dart';
 import 'package:ai_chat_bot/features/chat/data/folder_repository.dart';
 import 'package:ai_chat_bot/features/prompts/data/prompt_repository.dart';
 import 'package:ai_chat_bot/features/chat/data/streaming_service.dart';
+import 'package:ai_chat_bot/features/gamification/data/gamification_repository.dart';
 import 'package:ai_chat_bot/core/config/env_config.dart';
 import 'package:ai_chat_bot/core/di/dependency_injection.dart';
 import 'package:ai_chat_bot/core/routers/app_routes.dart';
@@ -39,7 +40,11 @@ Future<void> setupDI() async {
 
   // Repositories
   di.registerLazySingleton<AuthRepository>(
-    () => AuthRepository(di<DioClient>(), di<DeviceIdProvider>()),
+    () => AuthRepository(
+      di<DioClient>(),
+      di<DeviceIdProvider>(),
+      di<TokenStorage>(),
+    ),
   );
   di.registerLazySingleton<ChatRepository>(
     () => ChatRepository(di<DioClient>()),
@@ -49,6 +54,9 @@ Future<void> setupDI() async {
   );
   di.registerLazySingleton<PromptRepository>(
     () => PromptRepository(di<DioClient>()),
+  );
+  di.registerLazySingleton<GamificationRepository>(
+    () => GamificationRepository(di<DioClient>()),
   );
 
   // Services

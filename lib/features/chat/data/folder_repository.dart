@@ -14,6 +14,18 @@ class FolderRepository {
   Future<ApiResponse<List<Folder>>> getFolders() async {
     try {
       final response = await _dioClient.dio.get(ApiPaths.folders);
+      final data = response.data;
+      if (data is List) {
+        return ApiResponse<List<Folder>>(
+          success: true,
+          message: 'Folders loaded successfully',
+          status: 200,
+          data: data
+              .map((e) => Folder.fromJson(e as Map<String, dynamic>))
+              .toList(),
+        );
+      }
+
       return ApiResponse<List<Folder>>.fromJson(
         response.data,
         (json) => (json as List)
@@ -31,6 +43,22 @@ class FolderRepository {
       final response = await _dioClient.dio.post(
         ApiPaths.folders,
         data: {'name': name, 'color': color},
+      );
+      return ApiResponse<Folder>.fromJson(
+        response.data,
+        (json) => Folder.fromJson(json as Map<String, dynamic>),
+      );
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  /// Update folder name
+  Future<ApiResponse<Folder>> updateFolder(String id, String name) async {
+    try {
+      final response = await _dioClient.dio.put(
+        ApiPaths.folder(id),
+        data: {'name': name},
       );
       return ApiResponse<Folder>.fromJson(
         response.data,

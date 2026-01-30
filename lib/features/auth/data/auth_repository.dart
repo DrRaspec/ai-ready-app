@@ -3,29 +3,36 @@ import 'package:ai_chat_bot/core/device/device_id_provider.dart';
 import 'package:ai_chat_bot/core/logging/app_logger.dart';
 import 'package:ai_chat_bot/core/network/api_paths.dart';
 import 'package:ai_chat_bot/core/network/dio_client.dart';
+import 'package:ai_chat_bot/core/storage/token_storage.dart';
 import 'package:ai_chat_bot/features/auth/data/auth_data.dart';
 import 'package:ai_chat_bot/features/auth/data/login_request_data.dart';
-import 'package:ai_chat_bot/features/auth/data/register_request_data.dart';
+import 'package:ai_chat_bot/features/auth/data/models/session.dart';
 import 'package:ai_chat_bot/features/auth/data/models/user_preferences.dart';
 import 'package:ai_chat_bot/features/auth/data/models/user_stats_data.dart';
+import 'package:ai_chat_bot/features/auth/data/register_request_data.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 class AuthRepository {
   final DioClient _dioClient;
   final DeviceIdProvider _deviceIdProvider;
+  final TokenStorage _tokenStorage;
 
-  AuthRepository(DioClient dioClient, DeviceIdProvider deviceIdProvider)
-    : _dioClient = dioClient,
-      _deviceIdProvider = deviceIdProvider;
+  AuthRepository(
+    DioClient dioClient,
+    DeviceIdProvider deviceIdProvider,
+    TokenStorage tokenStorage,
+  ) : _dioClient = dioClient,
+      _deviceIdProvider = deviceIdProvider,
+      _tokenStorage = tokenStorage;
 
   Future<ApiResponse<AuthData>> login(LoginRequestData request) async {
     try {
       AppLogger.i(
-        'Login request -> ${_dioClient.dio.options.baseUrl}/${ApiPaths.login}',
+        'Login request -> ${_dioClient.dio.options.baseUrl}${ApiPaths.login}',
       );
       debugPrint(
-        'Login request -> ${_dioClient.dio.options.baseUrl}/${ApiPaths.login}',
+        'Login request -> ${_dioClient.dio.options.baseUrl}${ApiPaths.login}',
       );
       final deviceId =
           request.deviceId ?? await _deviceIdProvider.getDeviceId();
@@ -90,7 +97,14 @@ class AuthRepository {
 
   Future<void> logout() async {
     try {
-      await _dioClient.dio.post(ApiPaths.logout);
+      final refreshToken = await _tokenStorage.readRefreshToken();
+      final deviceId = await _deviceIdProvider.getDeviceId();
+
+      await _dioClient.dio.post(
+        ApiPaths.logout,
+        data: {'refreshToken': refreshToken, 'deviceId': deviceId},
+      );
+      await _tokenStorage.clear();
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }
@@ -186,6 +200,36 @@ class AuthRepository {
         response.data,
         (json) => UserPreferences.fromJson(json as Map<String, dynamic>),
       );
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<ApiResponse<List<Session>>> getSessions() async {
+    try {
+      final response = await _dioClient.dio.get(ApiPaths.sessions);
+      return ApiResponse<List<Session>>.fromJson(
+        response.data,
+        (json) => (json as List)
+            .map((e) => Session.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<void> terminateSession(String sessionId) async {
+    try {
+      await _dioClient.dio.delete(ApiPaths.session(sessionId));
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<void> terminateAllOtherSessions() async {
+    try {
+      await _dioClient.dio.delete(ApiPaths.sessionsAllOthers);
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }

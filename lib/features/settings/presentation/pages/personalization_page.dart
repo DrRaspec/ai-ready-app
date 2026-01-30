@@ -30,6 +30,9 @@ class _PersonalizationView extends StatefulWidget {
 
 class _PersonalizationViewState extends State<_PersonalizationView> {
   final _systemInstructionsController = TextEditingController();
+  final _preferredNameController = TextEditingController();
+  final _preferredToneController = TextEditingController();
+  final _preferredLanguageController = TextEditingController();
   bool _streamResponse = true;
   bool _hapticFeedback = true;
   String _themeMode = 'system';
@@ -43,6 +46,9 @@ class _PersonalizationViewState extends State<_PersonalizationView> {
   @override
   void dispose() {
     _systemInstructionsController.dispose();
+    _preferredNameController.dispose();
+    _preferredToneController.dispose();
+    _preferredLanguageController.dispose();
     super.dispose();
   }
 
@@ -76,6 +82,9 @@ class _PersonalizationViewState extends State<_PersonalizationView> {
                         final prefs = UserPreferences(
                           systemInstructions:
                               _systemInstructionsController.text,
+                          preferredName: _preferredNameController.text,
+                          preferredTone: _preferredToneController.text,
+                          preferredLanguage: _preferredLanguageController.text,
                           streamResponse: _streamResponse,
                           hapticFeedback: _hapticFeedback,
                           themeMode: _themeMode,
@@ -102,21 +111,32 @@ class _PersonalizationViewState extends State<_PersonalizationView> {
           if (!state.isLoading && state.preferences != null) {
             _systemInstructionsController.text =
                 state.preferences!.systemInstructions ?? '';
+            _preferredNameController.text =
+                state.preferences!.preferredName ?? '';
+            _preferredToneController.text =
+                state.preferences!.preferredTone ?? '';
+            _preferredLanguageController.text =
+                state.preferences!.preferredLanguage ?? '';
+
             setState(() {
               _streamResponse = state.preferences!.streamResponse ?? true;
               _hapticFeedback = state.preferences!.hapticFeedback ?? true;
-              _themeMode = state.preferences!.themeMode ?? 'system';
+              if (state.preferences!.themeMode != null) {
+                _themeMode = state.preferences!.themeMode!;
+              }
               _defaultModel = state.preferences!.model;
             });
 
-            // Sync with global ThemeCubit
-            final themeCubit = context.read<ThemeCubit>();
-            if (_themeMode == 'light') {
-              themeCubit.light();
-            } else if (_themeMode == 'dark') {
-              themeCubit.dark();
-            } else {
-              themeCubit.system();
+            // Sync with global ThemeCubit only if the theme is explicitly provided by the server
+            if (state.preferences!.themeMode != null) {
+              final themeCubit = context.read<ThemeCubit>();
+              if (state.preferences!.themeMode == 'light') {
+                themeCubit.light();
+              } else if (state.preferences!.themeMode == 'dark') {
+                themeCubit.dark();
+              } else if (state.preferences!.themeMode == 'system') {
+                themeCubit.system();
+              }
             }
           }
         },
@@ -133,6 +153,33 @@ class _PersonalizationViewState extends State<_PersonalizationView> {
             children: [
               _buildSectionHeader(theme, 'AI Persona'),
               const SizedBox(height: 8),
+              TextField(
+                controller: _preferredNameController,
+                decoration: const InputDecoration(
+                  labelText: 'Preferred Name',
+                  hintText: 'How should the AI address you?',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _preferredToneController,
+                decoration: const InputDecoration(
+                  labelText: 'Preferred Tone',
+                  hintText: 'e.g., Friendly, Professional, Concise',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _preferredLanguageController,
+                decoration: const InputDecoration(
+                  labelText: 'Preferred Language',
+                  hintText: 'e.g., English, Thai, etc.',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
               TextField(
                 controller: _systemInstructionsController,
                 decoration: const InputDecoration(

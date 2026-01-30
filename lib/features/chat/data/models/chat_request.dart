@@ -9,6 +9,7 @@ class ChatRequest {
   final double? temperature;
   final String? modeHint;
   final String? conversationId;
+  final String? folderId;
   final bool? forceTextChat;
 
   const ChatRequest({
@@ -21,6 +22,7 @@ class ChatRequest {
     this.temperature,
     this.modeHint,
     this.conversationId,
+    this.folderId,
     this.forceTextChat,
   });
 
@@ -33,6 +35,7 @@ class ChatRequest {
     if (model != null) map['model'] = model;
     if (temperature != null) map['temperature'] = temperature;
     if (modeHint != null) map['modeHint'] = modeHint;
+    if (folderId != null) map['folderId'] = folderId;
     // Note: conversationId is passed in URL path, not body
     if (forceTextChat != null) map['forceTextChat'] = forceTextChat;
     return map;

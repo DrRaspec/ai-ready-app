@@ -26,8 +26,8 @@ class ChatRepository {
     try {
       // Use conversation-specific endpoint if we have a conversationId
       final path = request.conversationId != null
-          ? ApiPaths.smartWithConversation(request.conversationId!)
-          : ApiPaths.smart;
+          ? ApiPaths.chatWithConversation(request.conversationId!)
+          : ApiPaths.chat;
 
       final response = await _dioClient.dio.post(path, data: request.toJson());
 
@@ -69,12 +69,22 @@ class ChatRepository {
       // Use a transformer to handle decoding and splitting lines
       // Note: This is a basic implementation. real SSE parsers handle 'data:' prefix
       yield* stream
+          .cast<List<int>>()
           .transform(utf8.decoder)
           .transform(const LineSplitter())
           .map((line) {
-            if (line.startsWith('data: ')) {
-              final data = line.substring(6);
-              if (data == '[DONE]') return '';
+            if (line.startsWith('data:')) {
+              // Capture everything after 'data:' including the leading space if potential content
+              var data = line.substring(5);
+
+              // Remove [CONV_ID:...] metadata if present
+              if (data.contains('[CONV_ID:')) {
+                data = data.replaceAll(RegExp(r'\[CONV_ID:[^\]]+\]'), '');
+              }
+
+              // Check for DONE marker (trimming just for this check)
+              if (data.trim() == '[DONE]') return '';
+
               return data;
             }
             return '';
@@ -419,7 +429,7 @@ class ChatRepository {
   ) async {
     try {
       final response = await _dioClient.dio.patch(
-        ApiPaths.conversation(conversationId),
+        ApiPaths.conversationFolder(conversationId),
         data: {'folderId': folderId},
       );
 

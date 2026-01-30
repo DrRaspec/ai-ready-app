@@ -27,6 +27,20 @@ class ChatState extends Equatable {
   // Animation
   final String? lastAnimatedMessageId;
 
+  // Search
+  final String searchQuery;
+
+  bool get isSearching => searchQuery.isNotEmpty;
+
+  List<Conversation> get visibleConversations {
+    if (searchQuery.isEmpty) return conversations;
+    return conversations.where((c) {
+      final title = (c.title ?? '').toLowerCase();
+      final query = searchQuery.toLowerCase();
+      return title.contains(query);
+    }).toList();
+  }
+
   const ChatState({
     this.status = ChatStatus.initial,
     this.conversations = const [],
@@ -42,6 +56,7 @@ class ChatState extends Equatable {
     this.conversationPage = 0,
     this.currentFolderId,
     this.lastAnimatedMessageId,
+    this.searchQuery = '',
   });
 
   bool get isLoading => status == ChatStatus.loading;
@@ -76,6 +91,7 @@ class ChatState extends Equatable {
     bool clearCurrentFolderId = false,
     String? lastAnimatedMessageId,
     bool clearLastAnimatedMessageId = false,
+    String? searchQuery,
   }) {
     return ChatState(
       status: status ?? this.status,
@@ -101,6 +117,7 @@ class ChatState extends Equatable {
       lastAnimatedMessageId: clearLastAnimatedMessageId
           ? null
           : (lastAnimatedMessageId ?? this.lastAnimatedMessageId),
+      searchQuery: searchQuery ?? this.searchQuery,
     );
   }
 
@@ -120,5 +137,6 @@ class ChatState extends Equatable {
     conversationPage,
     currentFolderId,
     lastAnimatedMessageId,
+    searchQuery,
   ];
 }

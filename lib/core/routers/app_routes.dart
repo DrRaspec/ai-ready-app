@@ -1,6 +1,5 @@
 import 'package:ai_chat_bot/features/auth/presentation/pages/login_page.dart';
 import 'package:ai_chat_bot/features/auth/presentation/pages/register_page.dart';
-import 'package:ai_chat_bot/features/chat/presentation/pages/conversations_page.dart';
 import 'package:ai_chat_bot/features/chat/presentation/pages/chat_page.dart';
 import 'package:ai_chat_bot/features/chat/presentation/pages/usage_page.dart';
 import 'package:ai_chat_bot/features/profile/presentation/profile_screen.dart';
@@ -8,6 +7,7 @@ import 'package:ai_chat_bot/features/bookmarks/presentation/pages/bookmarks_page
 import 'package:ai_chat_bot/features/discover/presentation/pages/discover_page.dart';
 import 'package:ai_chat_bot/features/prompts/presentation/pages/prompt_library_page.dart'; // Added import
 import 'package:ai_chat_bot/features/settings/presentation/pages/personalization_page.dart'; // Added import
+import 'package:ai_chat_bot/features/auth/presentation/pages/sessions_page.dart';
 import 'package:go_router/go_router.dart';
 
 import 'route_names.dart';
@@ -38,11 +38,11 @@ final GoRouter appRouter = GoRouter(
       name: RouteNames.register,
       builder: (context, state) => const RegisterPage(),
     ),
-    GoRoute(
-      path: RoutePaths.conversations,
-      name: RouteNames.conversations,
-      builder: (context, state) => const ConversationsPage(),
-    ),
+    // GoRoute(
+    //   path: RoutePaths.conversations,
+    //   name: RouteNames.conversations,
+    //   builder: (context, state) => const ConversationsPage(),
+    // ),
     GoRoute(
       path: RoutePaths.chat,
       name: RouteNames.chat,
@@ -93,6 +93,11 @@ final GoRouter appRouter = GoRouter(
       path: RoutePaths.personalization,
       name: RouteNames.personalization,
       builder: (context, state) => const PersonalizationPage(),
+    ),
+    GoRoute(
+      path: RoutePaths.sessions,
+      name: RouteNames.sessions,
+      builder: (context, state) => const SessionsPage(),
     ),
   ],
 );

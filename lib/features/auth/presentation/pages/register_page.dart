@@ -71,7 +71,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 ),
               );
             } else if (state is Authenticated) {
-              context.goNamed(RouteNames.conversations);
+              context.goNamed(RouteNames.chat);
             }
           },
           builder: (context, state) {

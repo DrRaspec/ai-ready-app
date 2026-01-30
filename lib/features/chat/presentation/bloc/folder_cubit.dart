@@ -44,4 +44,15 @@ class FolderCubit extends Cubit<FolderState> {
       emit(FolderError(e.message));
     }
   }
+
+  Future<void> renameFolder(String id, String newName) async {
+    try {
+      final response = await _repository.updateFolder(id, newName);
+      if (response.success) {
+        loadFolders();
+      }
+    } on ApiException catch (e) {
+      emit(FolderError(e.message));
+    }
+  }
 }

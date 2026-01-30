@@ -8,6 +8,7 @@ class ChatResponse {
   final int? completionTokens;
   final int? totalTokens;
   final String? detectedIntent;
+  final String? title;
   final List<String>? suggestedReplies;
 
   const ChatResponse({
@@ -19,6 +20,7 @@ class ChatResponse {
     this.completionTokens,
     this.totalTokens,
     this.detectedIntent,
+    this.title,
     this.suggestedReplies,
   });
 
@@ -31,6 +33,7 @@ class ChatResponse {
     completionTokens: json['completionTokens'] as int?,
     totalTokens: json['totalTokens'] as int?,
     detectedIntent: json['detectedIntent'] as String?,
+    title: json['title'] as String?,
     suggestedReplies: (json['suggestedReplies'] as List<dynamic>?)
         ?.map((e) => e as String)
         .toList(),

@@ -33,6 +33,8 @@ class ApiPaths {
       '$ai/conversations/$conversationId/messages';
   static String conversation(String conversationId) =>
       '$ai/conversations/$conversationId';
+  static String conversationFolder(String conversationId) =>
+      '$ai/conversations/$conversationId/folder';
   static String regenerate(String conversationId) =>
       '$ai/conversations/$conversationId/regenerate';
   static String summary(String conversationId) =>
@@ -67,9 +69,17 @@ class ApiPaths {
   static String folder(String id) => '$folders/$id';
 
   // Prompts
-  static const String prompts = '$apiVersion/prompts';
+  static const String prompts = '$ai/prompts';
   static String prompt(String id) => '$prompts/$id';
+
+  // Sessions
+  static const String sessions = '$apiVersion/sessions';
+  static String session(String id) => '$sessions/$id';
+  static const String sessionsAllOthers = '$sessions/all-others';
 
   // User Preferences
   static const String preferences = '$apiVersion/users/me/preferences';
+
+  // Gamification
+  static const String gamificationStatus = '$apiVersion/gamification/status';
 }

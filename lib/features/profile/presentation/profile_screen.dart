@@ -3,7 +3,11 @@ import 'package:ai_chat_bot/core/storage/local_storage.dart';
 import 'package:ai_chat_bot/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:ai_chat_bot/features/profile/presentation/cubit/profile_cubit.dart';
 import 'package:ai_chat_bot/features/profile/presentation/cubit/profile_state.dart';
+import 'package:ai_chat_bot/features/gamification/presentation/bloc/gamification_cubit.dart';
+import 'package:ai_chat_bot/features/gamification/presentation/bloc/gamification_state.dart';
+import 'package:ai_chat_bot/features/gamification/presentation/widgets/achievements_card.dart';
 import 'package:ai_chat_bot/features/settings/presentation/widgets/settings_modal.dart';
+import 'package:ai_chat_bot/core/routers/route_paths.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -29,6 +33,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _loadProfile() {
     context.read<ProfileCubit>().loadProfile();
+    context.read<GamificationCubit>().checkStatus();
   }
 
   Future<void> _pickAvatar() async {
@@ -180,118 +185,113 @@ class _ProfileScreenState extends State<ProfileScreen> {
           if (authState is Authenticated) {
             final user = authState.authData;
 
-            return BlocListener<ProfileCubit, ProfileState>(
-              listener: (context, profileState) {
-                if (profileState.newlyUnlocked.isNotEmpty) {
-                  _showAchievementDialog(profileState.newlyUnlocked);
-                  context.read<ProfileCubit>().clearNewlyUnlocked();
-                }
+            return BlocBuilder<ProfileCubit, ProfileState>(
+              builder: (context, profileState) {
+                // Use profile state name if available, otherwise auth data
+                final displayFirstName =
+                    profileState.firstName ?? user.firstName ?? '';
+                final displayLastName =
+                    profileState.lastName ?? user.lastName ?? '';
+                final fullName = '$displayFirstName $displayLastName'.trim();
+                final initials =
+                    '${displayFirstName.isNotEmpty ? displayFirstName[0] : ''}'
+                            '${displayLastName.isNotEmpty ? displayLastName[0] : ''}'
+                        .toUpperCase();
+
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    children: [
+                      // Avatar with edit button
+                      _buildAvatarSection(
+                        profileState.avatarPath,
+                        profileState.profilePictureUrl,
+                        initials,
+                        colorScheme,
+                        profileState.isUploading,
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Name and Email with Edit button
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            fullName.isNotEmpty ? fullName : 'User',
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            onPressed: () =>
+                                _showEditProfileDialog(context, profileState),
+                            icon: Icon(
+                              Icons.edit_outlined,
+                              size: 20,
+                              color: colorScheme.primary,
+                            ),
+                            tooltip: 'Edit Profile',
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ],
+                      ),
+                      Text(
+                        user.email ?? '',
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+
+                      // Stats Section
+                      _buildStatsSection(profileState, theme, colorScheme),
+                      const SizedBox(height: 24),
+
+                      // Achievements Section
+                      BlocBuilder<GamificationCubit, GamificationState>(
+                        builder: (context, state) {
+                          if (state is GamificationLoaded) {
+                            return AchievementsCard(status: state.status);
+                          }
+                          return const SizedBox.shrink();
+                        },
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Quick Actions
+                      _buildQuickActionsSection(theme, colorScheme),
+                      const SizedBox(height: 32),
+
+                      // Logout Button
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: () {
+                            context.read<AuthBloc>().add(LogoutRequested());
+                          },
+                          style: FilledButton.styleFrom(
+                            backgroundColor: colorScheme.error,
+                            foregroundColor: colorScheme.onError,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          icon: const Icon(Icons.logout),
+                          label: const Text(
+                            'Logout',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
               },
-              child: BlocBuilder<ProfileCubit, ProfileState>(
-                builder: (context, profileState) {
-                  // Use profile state name if available, otherwise auth data
-                  final displayFirstName =
-                      profileState.firstName ?? user.firstName ?? '';
-                  final displayLastName =
-                      profileState.lastName ?? user.lastName ?? '';
-                  final fullName = '$displayFirstName $displayLastName'.trim();
-                  final initials =
-                      '${displayFirstName.isNotEmpty ? displayFirstName[0] : ''}'
-                              '${displayLastName.isNotEmpty ? displayLastName[0] : ''}'
-                          .toUpperCase();
-
-                  return SingleChildScrollView(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Column(
-                      children: [
-                        // Avatar with edit button
-                        _buildAvatarSection(
-                          profileState.avatarPath,
-                          profileState.profilePictureUrl,
-                          initials,
-                          colorScheme,
-                          profileState.isUploading,
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Name and Email with Edit button
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              fullName.isNotEmpty ? fullName : 'User',
-                              style: theme.textTheme.headlineSmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            IconButton(
-                              onPressed: () =>
-                                  _showEditProfileDialog(context, profileState),
-                              icon: Icon(
-                                Icons.edit_outlined,
-                                size: 20,
-                                color: colorScheme.primary,
-                              ),
-                              tooltip: 'Edit Profile',
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          ],
-                        ),
-                        Text(
-                          user.email ?? '',
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-
-                        // Stats Section
-                        _buildStatsSection(profileState, theme, colorScheme),
-                        const SizedBox(height: 24),
-
-                        // Achievements Section
-                        _buildAchievementsSection(
-                          profileState,
-                          theme,
-                          colorScheme,
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Quick Actions
-                        _buildQuickActionsSection(theme, colorScheme),
-                        const SizedBox(height: 32),
-
-                        // Logout Button
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton.icon(
-                            onPressed: () {
-                              context.read<AuthBloc>().add(LogoutRequested());
-                            },
-                            style: FilledButton.styleFrom(
-                              backgroundColor: colorScheme.error,
-                              foregroundColor: colorScheme.onError,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            icon: const Icon(Icons.logout),
-                            label: const Text(
-                              'Logout',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
             );
           }
 
@@ -462,67 +462,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildAchievementsSection(
-    ProfileState profileState,
-    ThemeData theme,
-    ColorScheme colorScheme,
-  ) {
-    final definitions = LocalStorage.achievementDefinitions;
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.emoji_events_rounded, color: Colors.amber),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Achievements',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              Text(
-                '${profileState.unlockedAchievements.length}/${definitions.length}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: definitions.entries.map((entry) {
-              final isUnlocked = profileState.unlockedAchievements.contains(
-                entry.key,
-              );
-              return _AchievementBadge(
-                achievement: entry.value,
-                isUnlocked: isUnlocked,
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildQuickActionsSection(ThemeData theme, ColorScheme colorScheme) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -579,6 +518,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             },
           ),
           _ActionTile(
+            icon: Icons.devices_outlined,
+            title: 'Active Sessions',
+            subtitle: 'Manage devices',
+            onTap: () => context.push(RoutePaths.sessions),
+          ),
+          _ActionTile(
             icon: Icons.delete_outline_rounded,
             title: 'Clear Local Data',
             subtitle: 'Reset bookmarks & settings',
@@ -588,78 +533,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
     );
-  }
-
-  void _showAchievementDialog(List<String> achievementIds) {
-    final definitions = LocalStorage.achievementDefinitions;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.celebration, color: Colors.amber),
-            const SizedBox(width: 8),
-            const Expanded(
-              child: Text(
-                'Achievement Unlocked!',
-                overflow: TextOverflow.visible,
-              ),
-            ),
-          ],
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: achievementIds.length,
-            itemBuilder: (context, index) {
-              final id = achievementIds[index];
-              final achievement = definitions[id];
-              if (achievement == null) return const SizedBox.shrink();
-              return ListTile(
-                leading: Icon(
-                  _getIconData(achievement['icon'] as String),
-                  color: Colors.amber,
-                  size: 32,
-                ),
-                title: Text(achievement['name'] as String),
-                subtitle: Text(achievement['description'] as String),
-              );
-            },
-          ),
-        ),
-        actions: [
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Awesome!'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  IconData _getIconData(String iconName) {
-    switch (iconName) {
-      case 'chat_bubble':
-        return Icons.chat_bubble_outline_rounded;
-      case 'forum':
-        return Icons.forum_outlined;
-      case 'workspace_premium':
-        return Icons.workspace_premium_outlined;
-      case 'message':
-        return Icons.message_outlined;
-      case 'bolt':
-        return Icons.bolt_rounded;
-      case 'bookmark':
-        return Icons.bookmark_outline_rounded;
-      case 'nightlight':
-        return Icons.nightlight_outlined;
-      case 'wb_sunny':
-        return Icons.wb_sunny_outlined;
-      default:
-        return Icons.emoji_events_outlined;
-    }
   }
 }
 
@@ -710,71 +583,6 @@ class _StatCard extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-class _AchievementBadge extends StatelessWidget {
-  final Map<String, dynamic> achievement;
-  final bool isUnlocked;
-
-  const _AchievementBadge({
-    required this.achievement,
-    required this.isUnlocked,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Tooltip(
-      message: '${achievement['name']}: ${achievement['description']}',
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isUnlocked
-              ? Colors.amber.withValues(alpha: 0.2)
-              : colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isUnlocked
-                ? Colors.amber
-                : colorScheme.outlineVariant.withValues(alpha: 0.3),
-            width: isUnlocked ? 2 : 1,
-          ),
-        ),
-        child: Icon(
-          _getIconData(achievement['icon'] as String),
-          color: isUnlocked
-              ? Colors.amber
-              : colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
-          size: 28,
-        ),
-      ),
-    );
-  }
-
-  IconData _getIconData(String iconName) {
-    switch (iconName) {
-      case 'chat_bubble':
-        return Icons.chat_bubble_outline_rounded;
-      case 'forum':
-        return Icons.forum_outlined;
-      case 'workspace_premium':
-        return Icons.workspace_premium_outlined;
-      case 'message':
-        return Icons.message_outlined;
-      case 'bolt':
-        return Icons.bolt_rounded;
-      case 'bookmark':
-        return Icons.bookmark_outline_rounded;
-      case 'nightlight':
-        return Icons.nightlight_outlined;
-      case 'wb_sunny':
-        return Icons.wb_sunny_outlined;
-      default:
-        return Icons.emoji_events_outlined;
-    }
   }
 }
 

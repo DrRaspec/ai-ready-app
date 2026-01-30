@@ -38,6 +38,23 @@ class SelectConversation extends ChatEvent {
   List<Object?> get props => [conversationId];
 }
 
+/// Refresh messages for current conversation without clearing UI.
+class RefreshMessages extends ChatEvent {
+  final String conversationId;
+
+  const RefreshMessages(this.conversationId);
+
+  @override
+  List<Object?> get props => [conversationId];
+}
+
+class SearchConversations extends ChatEvent {
+  final String query;
+  const SearchConversations(this.query);
+  @override
+  List<Object?> get props => [query];
+}
+
 /// Send a new message.
 class SendMessage extends ChatEvent {
   final String message;
