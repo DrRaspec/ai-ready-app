@@ -1,17 +1,15 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get/get.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/services.dart';
 import 'package:gal/gal.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_bloc.dart';
-import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_event.dart';
-import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_state.dart';
+import 'package:ai_chat_bot/features/chat/presentation/controllers/chat_controller.dart';
+import 'package:ai_chat_bot/features/chat/presentation/controllers/chat_state.dart';
 import 'package:ai_chat_bot/features/chat/data/models/message.dart';
-import 'package:ai_chat_bot/core/theme/theme_cubit.dart';
-import 'package:ai_chat_bot/core/theme/theme_state.dart';
+import 'package:ai_chat_bot/core/theme/theme_controller.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
@@ -29,23 +27,45 @@ import 'package:ai_chat_bot/core/routers/route_names.dart';
 import 'package:ai_chat_bot/features/chat/presentation/widgets/chat_drawer.dart';
 import 'package:ai_chat_bot/core/theme/app_colors.dart';
 import 'package:ai_chat_bot/features/chat/data/models/conversation.dart';
-import 'package:ai_chat_bot/features/bookmarks/presentation/bloc/bookmarks_cubit.dart';
-import 'package:ai_chat_bot/features/bookmarks/presentation/bloc/bookmarks_state.dart';
+import 'package:ai_chat_bot/features/bookmarks/presentation/controllers/bookmarks_controller.dart';
 import 'package:flutter_highlighter/flutter_highlighter.dart';
 
-class ChatPage extends StatefulWidget {
+class ChatPage extends GetView<ChatController> {
   final String? conversationId;
   final String? scrollToMessageId;
   const ChatPage({super.key, this.conversationId, this.scrollToMessageId});
 
   @override
-  State<ChatPage> createState() => _ChatPageState();
+  Widget build(BuildContext context) {
+    return _ChatPageView(
+      controller: controller,
+      conversationId: conversationId,
+      scrollToMessageId: scrollToMessageId,
+    );
+  }
 }
 
-class _ChatPageState extends State<ChatPage> {
+class _ChatPageView extends StatefulWidget {
+  final ChatController controller;
+  final String? conversationId;
+  final String? scrollToMessageId;
+
+  const _ChatPageView({
+    required this.controller,
+    this.conversationId,
+    this.scrollToMessageId,
+  });
+
+  @override
+  State<_ChatPageView> createState() => _ChatPageViewState();
+}
+
+class _ChatPageViewState extends State<_ChatPageView> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   String? _selectedModel;
+  late final ChatController _chatController;
+  late final Worker _chatStateWorker;
 
   // Voice Recording
   bool _isListening = false;
@@ -61,12 +81,50 @@ class _ChatPageState extends State<ChatPage> {
   void initState() {
     super.initState();
 
-    print("ChatPage initialized with ID: ${widget.conversationId}");
+    _chatController = widget.controller;
+    _chatStateWorker = ever<ChatState>(
+      _chatController.rxState,
+      _handleChatStateChanged,
+    );
+
+    debugPrint("ChatPage initialized with ID: ${widget.conversationId}");
     if (widget.conversationId != null) {
-      context.read<ChatBloc>().add(SelectConversation(widget.conversationId!));
+      _chatController.selectConversation(widget.conversationId!);
     }
     _initSpeech();
     _initTts();
+  }
+
+  void _handleChatStateChanged(ChatState state) {
+    if (widget.scrollToMessageId != null &&
+        !_hasScrolledToBookmark &&
+        !state.isLoading &&
+        state.messages.isNotEmpty) {
+      final index = state.messages.indexWhere(
+        (m) => m.id == widget.scrollToMessageId,
+      );
+
+      if (index != -1) {
+        _hasScrolledToBookmark = true;
+        final listIndex = state.messages.length - 1 - index;
+
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (_scrollController.hasClients) {
+            _scrollController.animateTo(
+              listIndex * 150.0,
+              duration: const Duration(milliseconds: 600),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+      }
+    }
+
+    if (!state.isSending || state.messages.isNotEmpty) {
+      if (widget.scrollToMessageId == null) {
+        Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
+      }
+    }
   }
 
   Future<void> _initTts() async {
@@ -216,6 +274,8 @@ class _ChatPageState extends State<ChatPage> {
     _messageController.dispose();
     _scrollController.dispose();
 
+    _chatStateWorker.dispose();
+
     _speechToText.cancel();
     _flutterTts.stop();
     super.dispose();
@@ -223,19 +283,15 @@ class _ChatPageState extends State<ChatPage> {
 
   void _sendMessage() {
     final message = _messageController.text.trim();
-    if (message.isEmpty &&
-        context.read<ChatBloc>().state.attachedImagePath == null) {
+    final state = _chatController.state;
+    if (message.isEmpty && state.attachedImagePath == null) {
       return;
     }
 
-    final state = context.read<ChatBloc>().state;
-
-    context.read<ChatBloc>().add(
-      SendMessage(
-        message: message.isEmpty ? 'Image Analysis' : message,
-        conversationId: state.currentConversationId,
-        model: _selectedModel,
-      ),
+    _chatController.sendMessage(
+      message: message.isEmpty ? 'Image Analysis' : message,
+      conversationId: state.currentConversationId,
+      model: _selectedModel,
     );
     HapticFeedback.lightImpact();
 
@@ -358,7 +414,7 @@ class _ChatPageState extends State<ChatPage> {
       await file.writeAsBytes(bytes);
 
       if (mounted) {
-        context.read<ChatBloc>().add(AttachImage(file.path));
+        _chatController.attachImage(file.path);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Image pasted from clipboard')),
         );
@@ -430,52 +486,48 @@ class _ChatPageState extends State<ChatPage> {
           : null,
       automaticallyImplyLeading:
           false, // Don't show back button automatically if menu is hidden
-      title: BlocBuilder<ChatBloc, ChatState>(
-        builder: (context, state) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text(
-                'AI Chat',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            'AI Chat',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(
+            height: 24,
+            child: DropdownButton<String>(
+              value: _selectedModel ?? 'llama-3.3-70b-versatile',
+              underline: const SizedBox(),
+              icon: Icon(
+                Icons.arrow_drop_down,
+                size: 16,
+                color: colorScheme.onSurfaceVariant,
               ),
-              SizedBox(
-                height: 24,
-                child: DropdownButton<String>(
-                  value: _selectedModel ?? 'llama-3.3-70b-versatile',
-                  underline: const SizedBox(),
-                  icon: Icon(
-                    Icons.arrow_drop_down,
-                    size: 16,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                  onChanged: (String? newValue) {
-                    setState(() {
-                      _selectedModel = newValue;
-                    });
-                  },
-                  items:
-                      <String>[
-                        'llama-3.3-70b-versatile',
-                        'llama-3.1-8b-instant',
-                        'mixtral-8x7b-32768',
-                        'gemma2-9b-it',
-                      ].map<DropdownMenuItem<String>>((String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
-                        );
-                      }).toList(),
-                ),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
               ),
-            ],
-          );
-        },
+              onChanged: (String? newValue) {
+                setState(() {
+                  _selectedModel = newValue;
+                });
+              },
+              items:
+                  <String>[
+                    'llama-3.3-70b-versatile',
+                    'llama-3.1-8b-instant',
+                    'mixtral-8x7b-32768',
+                    'gemma2-9b-it',
+                  ].map<DropdownMenuItem<String>>((String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value),
+                    );
+                  }).toList(),
+            ),
+          ),
+        ],
       ),
       centerTitle: true,
       backgroundColor: Colors.transparent,
@@ -489,16 +541,15 @@ class _ChatPageState extends State<ChatPage> {
       ),
       actions: [
         IconButton(
-          icon: BlocBuilder<ThemeCubit, ThemeState>(
-            builder: (context, state) {
-              return Icon(
-                state.mode == ThemeMode.light
-                    ? Icons.dark_mode_rounded
-                    : Icons.light_mode_rounded,
-              );
-            },
-          ),
-          onPressed: () => context.read<ThemeCubit>().toggleTheme(),
+          icon: Obx(() {
+            final state = Get.find<ThemeController>().state;
+            return Icon(
+              state.mode == ThemeMode.light
+                  ? Icons.dark_mode_rounded
+                  : Icons.light_mode_rounded,
+            );
+          }),
+          onPressed: () => Get.find<ThemeController>().toggleTheme(),
         ),
         IconButton(
           icon: const Icon(Icons.person_outline_rounded),
@@ -513,221 +564,181 @@ class _ChatPageState extends State<ChatPage> {
       children: [
         // Messages list
         Expanded(
-          child: BlocConsumer<ChatBloc, ChatState>(
-            listener: (context, state) {
-              if (widget.scrollToMessageId != null &&
-                  !_hasScrolledToBookmark &&
-                  !state.isLoading &&
-                  state.messages.isNotEmpty) {
-                final index = state.messages.indexWhere(
-                  (m) => m.id == widget.scrollToMessageId,
-                );
-
-                if (index != -1) {
-                  _hasScrolledToBookmark = true;
-                  final listIndex = state.messages.length - 1 - index;
-
-                  Future.delayed(const Duration(milliseconds: 300), () {
-                    if (_scrollController.hasClients) {
-                      _scrollController.animateTo(
-                        listIndex * 150.0,
-                        duration: const Duration(milliseconds: 600),
-                        curve: Curves.easeOut,
-                      );
-                    }
-                  });
-                }
-              }
-
-              if (!state.isSending || state.messages.isNotEmpty) {
-                if (widget.scrollToMessageId == null) {
-                  Future.delayed(
-                    const Duration(milliseconds: 100),
-                    _scrollToBottom,
-                  );
-                }
-              }
-            },
-            builder: (context, state) {
-              if (state.messages.isEmpty && state.isLoading) {
-                final fakeMessages = List.generate(
-                  4,
-                  (index) =>
-                      Message.assistantLocal(
-                        'This is a long fake message for loading skeleton effect. ' *
-                            (index + 1),
-                      ).copyWith(
-                        role: index.isEven ? 'user' : 'assistant',
-                        id: 'fake_$index',
-                      ),
-                );
-
-                return Skeletonizer(
-                  enabled: true,
-                  child: ListView.builder(
-                    reverse: true,
-                    padding: EdgeInsets.fromLTRB(
-                      16,
-                      MediaQuery.of(context).padding.top + kToolbarHeight + 20,
-                      16,
-                      20,
+          child: Obx(() {
+            final state = _chatController.state;
+            if (state.messages.isEmpty && state.isLoading) {
+              final fakeMessages = List.generate(
+                4,
+                (index) =>
+                    Message.assistantLocal(
+                      'This is a long fake message for loading skeleton effect. ' *
+                          (index + 1),
+                    ).copyWith(
+                      role: index.isEven ? 'user' : 'assistant',
+                      id: 'fake_$index',
                     ),
-                    itemCount: fakeMessages.length,
-                    itemBuilder: (context, index) {
-                      final message = fakeMessages[index];
-                      return _MessageBubble(
-                        message: message,
-                        isSpeaking: false,
-                        onSpeak: () {},
-                      );
-                    },
+              );
+
+              return Skeletonizer(
+                enabled: true,
+                child: ListView.builder(
+                  reverse: true,
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    MediaQuery.of(context).padding.top + kToolbarHeight + 20,
+                    16,
+                    20,
                   ),
-                );
-              }
-
-              if (state.messages.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.primaryContainer.withValues(
-                            alpha: 0.3,
-                          ),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          _getIconData(state.chatMode?.iconName),
-                          size: 48,
-                          color: theme.colorScheme.primary,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      Text(
-                        state.chatMode?.label ?? 'How can I help you today?',
-                        style: theme.textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        state.chatMode?.systemPrompt ?? 'Ask me anything...',
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-
-              final showTypingIndicator =
-                  state.isSending &&
-                  (state.messages.isEmpty || state.messages.last.isUser);
-
-              return ListView.builder(
-                controller: _scrollController,
-                reverse: true,
-                padding: EdgeInsets.fromLTRB(
-                  16,
-                  MediaQuery.of(context).padding.top + kToolbarHeight + 20,
-                  16,
-                  20,
-                ),
-                itemCount:
-                    state.messages.length + (showTypingIndicator ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (showTypingIndicator && index == 0) {
-                    return const Padding(
-                      padding: EdgeInsets.only(bottom: 12),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: _TypingIndicator(),
-                      ),
+                  itemCount: fakeMessages.length,
+                  itemBuilder: (context, index) {
+                    final message = fakeMessages[index];
+                    return _MessageBubble(
+                      message: message,
+                      chatController: _chatController,
+                      isSpeaking: false,
+                      onSpeak: () {},
                     );
-                  }
-
-                  final adjustedIndex = showTypingIndicator ? index - 1 : index;
-                  final message =
-                      state.messages[state.messages.length - 1 - adjustedIndex];
-
-                  final isLastMessage = adjustedIndex == 0;
-                  return _MessageBubble(
-                    key: ValueKey(message.id),
-                    message: message,
-                    isSpeaking: _currentlySpeakingMessageId == message.id,
-                    onSpeak: () => _speak(message),
-                    shouldAnimate: message.id == state.lastAnimatedMessageId,
-                    isLastMessage: isLastMessage,
-                    isSending: state.isSending,
-                  );
-                },
-              );
-            },
-          ),
-        ),
-
-        BlocBuilder<ChatBloc, ChatState>(
-          builder: (context, state) {
-            if (state.errorMessage != null) {
-              return Container(
-                width: double.infinity,
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.errorContainer,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  state.errorMessage!,
-                  style: TextStyle(color: theme.colorScheme.onErrorContainer),
+                  },
                 ),
               );
             }
-            return const SizedBox.shrink();
-          },
-        ),
 
-        BlocBuilder<ChatBloc, ChatState>(
-          buildWhen: (p, c) => p.attachedImagePath != c.attachedImagePath,
-          builder: (context, state) {
-            if (state.attachedImagePath == null) {
-              return const SizedBox.shrink();
-            }
-
-            return Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(16),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.file(
-                      File(state.attachedImagePath!),
-                      width: 60,
-                      height: 60,
-                      fit: BoxFit.cover,
+            if (state.messages.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primaryContainer.withValues(
+                          alpha: 0.3,
+                        ),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        _getIconData(state.chatMode?.iconName),
+                        size: 48,
+                        color: theme.colorScheme.primary,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () =>
-                        context.read<ChatBloc>().add(const DetachImage()),
-                  ),
-                ],
+                    const SizedBox(height: 24),
+                    Text(
+                      state.chatMode?.label ?? 'How can I help you today?',
+                      style: theme.textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      state.chatMode?.systemPrompt ?? 'Ask me anything...',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            final showTypingIndicator =
+                state.isSending &&
+                (state.messages.isEmpty || state.messages.last.isUser);
+
+            return ListView.builder(
+              controller: _scrollController,
+              reverse: true,
+              padding: EdgeInsets.fromLTRB(
+                16,
+                MediaQuery.of(context).padding.top + kToolbarHeight + 20,
+                16,
+                20,
+              ),
+              itemCount: state.messages.length + (showTypingIndicator ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (showTypingIndicator && index == 0) {
+                  return const Padding(
+                    padding: EdgeInsets.only(bottom: 12),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: _TypingIndicator(),
+                    ),
+                  );
+                }
+
+                final adjustedIndex = showTypingIndicator ? index - 1 : index;
+                final message =
+                    state.messages[state.messages.length - 1 - adjustedIndex];
+
+                final isLastMessage = adjustedIndex == 0;
+                return _MessageBubble(
+                  key: ValueKey(message.id),
+                  message: message,
+                  chatController: _chatController,
+                  isSpeaking: _currentlySpeakingMessageId == message.id,
+                  onSpeak: () => _speak(message),
+                  shouldAnimate: message.id == state.lastAnimatedMessageId,
+                  isLastMessage: isLastMessage,
+                  isSending: state.isSending,
+                );
+              },
+            );
+          }),
+        ),
+        Obx(() {
+          final state = _chatController.state;
+          if (state.errorMessage != null) {
+            return Container(
+              width: double.infinity,
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.errorContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                state.errorMessage!,
+                style: TextStyle(color: theme.colorScheme.onErrorContainer),
               ),
             );
-          },
-        ),
+          }
+          return const SizedBox.shrink();
+        }),
+        Obx(() {
+          final state = _chatController.state;
+          if (state.attachedImagePath == null) {
+            return const SizedBox.shrink();
+          }
+
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(16),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.file(
+                    File(state.attachedImagePath!),
+                    width: 60,
+                    height: 60,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: _chatController.detachImage,
+                ),
+              ],
+            ),
+          );
+        }),
 
         ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
@@ -785,52 +796,48 @@ class _ChatPageState extends State<ChatPage> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    BlocBuilder<ChatBloc, ChatState>(
-                      builder: (context, state) {
-                        return ListenableBuilder(
-                          listenable: _messageController,
-                          builder: (context, _) {
-                            final isTextEmpty = _messageController.text
-                                .trim()
-                                .isEmpty;
-                            final hasAttachment =
-                                state.attachedImagePath != null;
-                            final canSend = !isTextEmpty || hasAttachment;
+                    Obx(() {
+                      final state = _chatController.state;
+                      return ListenableBuilder(
+                        listenable: _messageController,
+                        builder: (context, _) {
+                          final isTextEmpty = _messageController.text
+                              .trim()
+                              .isEmpty;
+                          final hasAttachment = state.attachedImagePath != null;
+                          final canSend = !isTextEmpty || hasAttachment;
 
-                            return IconButton.filled(
-                              onPressed: state.isSending
-                                  ? null
-                                  : (canSend
-                                        ? _sendMessage
-                                        : _handleVoiceRecord),
-                              style: IconButton.styleFrom(
-                                backgroundColor: _isListening
-                                    ? Colors.red
-                                    : theme.colorScheme.primary,
-                                foregroundColor: Colors.white,
-                                fixedSize: const Size(48, 48),
-                              ),
-                              icon: state.isSending
-                                  ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : Icon(
-                                      _isListening
-                                          ? Icons.stop_rounded
-                                          : (canSend
-                                                ? Icons.arrow_upward_rounded
-                                                : Icons.mic_rounded),
+                          return IconButton.filled(
+                            onPressed: state.isSending
+                                ? null
+                                : (canSend ? _sendMessage : _handleVoiceRecord),
+                            style: IconButton.styleFrom(
+                              backgroundColor: _isListening
+                                  ? Colors.red
+                                  : theme.colorScheme.primary,
+                              foregroundColor: Colors.white,
+                              fixedSize: const Size(48, 48),
+                            ),
+                            icon: state.isSending
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
                                     ),
-                            );
-                          },
-                        );
-                      },
-                    ),
+                                  )
+                                : Icon(
+                                    _isListening
+                                        ? Icons.stop_rounded
+                                        : (canSend
+                                              ? Icons.arrow_upward_rounded
+                                              : Icons.mic_rounded),
+                                  ),
+                          );
+                        },
+                      );
+                    }),
                   ],
                 ),
               ),
@@ -1013,6 +1020,7 @@ class _CodeBlockWithCopyState extends State<_CodeBlockWithCopy> {
 
 class _MessageBubble extends StatelessWidget {
   final Message message;
+  final ChatController chatController;
   final bool isSpeaking;
   final VoidCallback onSpeak;
   final bool shouldAnimate;
@@ -1022,6 +1030,7 @@ class _MessageBubble extends StatelessWidget {
   const _MessageBubble({
     super.key,
     required this.message,
+    required this.chatController,
     required this.isSpeaking,
     required this.onSpeak,
     this.shouldAnimate = false,
@@ -1116,6 +1125,7 @@ class _MessageBubble extends StatelessWidget {
                         await Gal.putImageBytes(bytes);
                       } else {
                         // Placeholder for network download
+                        if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text(
@@ -1198,7 +1208,7 @@ class _MessageBubble extends StatelessWidget {
                 child: GestureDetector(
                   onLongPress: () {
                     HapticFeedback.heavyImpact();
-                    _showMessageOptions(context, message);
+                    _showMessageOptions(context, message, chatController);
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(
@@ -1324,7 +1334,7 @@ class _MessageBubble extends StatelessWidget {
                     padding: EdgeInsets.zero,
                     labelPadding: const EdgeInsets.symmetric(horizontal: 8),
                     onPressed: () {
-                      context.read<ChatBloc>().add(SendMessage(message: reply));
+                      chatController.sendMessage(message: reply);
                     },
                   );
                 }).toList(),
@@ -1388,46 +1398,47 @@ class _MessageBubble extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
                 // Bookmark Button
-                BlocBuilder<BookmarksCubit, BookmarksState>(
-                  builder: (context, bookmarkState) {
-                    final isBookmarked = context
-                        .read<BookmarksCubit>()
-                        .isBookmarked(message.id);
-                    return InkWell(
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        context.read<BookmarksCubit>().toggleBookmark(
-                          messageId: message.id,
-                          content: message.content,
-                          role: message.role,
-                        );
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              isBookmarked
-                                  ? 'Bookmark removed'
-                                  : 'Message bookmarked',
-                            ),
-                            duration: const Duration(seconds: 1),
+                Obx(() {
+                  final bookmarksController = Get.find<BookmarksController>();
+                  final _ = bookmarksController.state;
+                  final isBookmarked = bookmarksController.isBookmarked(
+                    message.id,
+                  );
+
+                  return InkWell(
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      bookmarksController.toggleBookmark(
+                        messageId: message.id,
+                        content: message.content,
+                        role: message.role,
+                      );
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            isBookmarked
+                                ? 'Bookmark removed'
+                                : 'Message bookmarked',
                           ),
-                        );
-                      },
-                      borderRadius: BorderRadius.circular(12),
-                      child: Padding(
-                        padding: const EdgeInsets.all(6),
-                        child: Icon(
-                          isBookmarked
-                              ? Icons.bookmark_rounded
-                              : Icons.bookmark_outline_rounded,
-                          size: 16,
-                          color: isBookmarked
-                              ? Colors.amber
-                              : theme.colorScheme.outline,
+                          duration: const Duration(seconds: 1),
                         ),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.all(6),
+                      child: Icon(
+                        isBookmarked
+                            ? Icons.bookmark_rounded
+                            : Icons.bookmark_outline_rounded,
+                        size: 16,
+                        color: isBookmarked
+                            ? Colors.amber
+                            : theme.colorScheme.outline,
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  );
+                }),
 
                 // Time (Moved here for better alignment with actions)
                 if (message.createdAt != null) ...[
@@ -1455,7 +1466,11 @@ class _MessageBubble extends StatelessWidget {
   }
 }
 
-void _showMessageOptions(BuildContext context, Message message) {
+void _showMessageOptions(
+  BuildContext context,
+  Message message,
+  ChatController chatController,
+) {
   showModalBottomSheet(
     context: context,
     builder: (context) => SafeArea(
@@ -1468,7 +1483,7 @@ void _showMessageOptions(BuildContext context, Message message) {
               title: const Text('Edit Message'),
               onTap: () {
                 Navigator.pop(context); // Close sheet
-                _showEditDialog(context, message);
+                _showEditDialog(context, message, chatController);
               },
             ),
           if (!message.isUser)
@@ -1477,16 +1492,10 @@ void _showMessageOptions(BuildContext context, Message message) {
               title: const Text('Regenerate Response'),
               onTap: () {
                 Navigator.pop(context); // Close sheet
-                // Need conversationId. Assuming it's in context/state.
-                // We can fetch it via context.read<ChatBloc>().state.currentConversationId
-                final conversationId = context
-                    .read<ChatBloc>()
-                    .state
-                    .currentConversationId;
+                final conversationId =
+                    chatController.state.currentConversationId;
                 if (conversationId != null) {
-                  context.read<ChatBloc>().add(
-                    RegenerateMessage(conversationId),
-                  );
+                  chatController.regenerateMessage(conversationId);
                 }
               },
             ),
@@ -1503,9 +1512,8 @@ void _showMessageOptions(BuildContext context, Message message) {
           ),
           Builder(
             builder: (context) {
-              final isBookmarked = context.read<BookmarksCubit>().isBookmarked(
-                message.id,
-              );
+              final bookmarksController = Get.find<BookmarksController>();
+              final isBookmarked = bookmarksController.isBookmarked(message.id);
               return ListTile(
                 leading: Icon(
                   isBookmarked
@@ -1520,7 +1528,7 @@ void _showMessageOptions(BuildContext context, Message message) {
                 ),
                 onTap: () {
                   Navigator.pop(context); // Close sheet
-                  final state = context.read<ChatBloc>().state;
+                  final state = chatController.state;
                   // Find conversation title if possible, or use default
                   final conversation = state.conversations
                       .cast<Conversation?>()
@@ -1529,7 +1537,7 @@ void _showMessageOptions(BuildContext context, Message message) {
                         orElse: () => null,
                       );
 
-                  context.read<BookmarksCubit>().toggleBookmark(
+                  bookmarksController.toggleBookmark(
                     messageId: message.id,
                     content: message.content,
                     role: message.role,
@@ -1556,7 +1564,11 @@ void _showMessageOptions(BuildContext context, Message message) {
   );
 }
 
-void _showEditDialog(BuildContext context, Message message) {
+void _showEditDialog(
+  BuildContext context,
+  Message message,
+  ChatController chatController,
+) {
   final controller = TextEditingController(text: message.content);
   showDialog(
     context: context,
@@ -1576,9 +1588,7 @@ void _showEditDialog(BuildContext context, Message message) {
         TextButton(
           onPressed: () {
             if (controller.text.trim().isNotEmpty) {
-              context.read<ChatBloc>().add(
-                EditMessage(message.id, controller.text.trim()),
-              );
+              chatController.editMessage(message.id, controller.text.trim());
               Navigator.pop(context);
             }
           },

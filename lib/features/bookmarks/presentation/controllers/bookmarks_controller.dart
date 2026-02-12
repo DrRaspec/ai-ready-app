@@ -1,13 +1,21 @@
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get/get.dart';
 import 'package:ai_chat_bot/core/storage/local_storage.dart';
 import 'bookmarks_state.dart';
 
-class BookmarksCubit extends Cubit<BookmarksState> {
-  BookmarksCubit() : super(const BookmarksState());
+class BookmarksController extends GetxController {
+  final Rx<BookmarksState> rxState;
+
+  BookmarksState get state => rxState.value;
+
+  void _setState(BookmarksState newState) {
+    rxState.value = newState;
+  }
+
+  BookmarksController() : rxState = const BookmarksState().obs;
 
   /// Load all bookmarks from local storage
   void loadBookmarks() {
-    emit(state.copyWith(isLoading: true));
+    _setState(state.copyWith(isLoading: true));
 
     final bookmarksData = LocalStorage.getAllBookmarks();
     final bookmarks = bookmarksData.map((data) {
@@ -16,7 +24,7 @@ class BookmarksCubit extends Cubit<BookmarksState> {
 
     final bookmarkedIds = bookmarks.map((b) => b.id).toSet();
 
-    emit(
+    _setState(
       state.copyWith(
         bookmarks: bookmarks,
         bookmarkedIds: bookmarkedIds,
@@ -43,7 +51,7 @@ class BookmarksCubit extends Cubit<BookmarksState> {
       final updatedIds = Set<String>.from(state.bookmarkedIds)
         ..remove(messageId);
 
-      emit(
+      _setState(
         state.copyWith(bookmarks: updatedBookmarks, bookmarkedIds: updatedIds),
       );
     } else {
@@ -65,7 +73,7 @@ class BookmarksCubit extends Cubit<BookmarksState> {
         bookmarkedAt: DateTime.now(),
       );
 
-      emit(
+      _setState(
         state.copyWith(
           bookmarks: [newBookmark, ...state.bookmarks],
           bookmarkedIds: {...state.bookmarkedIds, messageId},
@@ -88,7 +96,7 @@ class BookmarksCubit extends Cubit<BookmarksState> {
         .toList();
     final updatedIds = Set<String>.from(state.bookmarkedIds)..remove(messageId);
 
-    emit(
+    _setState(
       state.copyWith(bookmarks: updatedBookmarks, bookmarkedIds: updatedIds),
     );
   }

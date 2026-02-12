@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'theme_state.dart';
 
-class ThemeCubit extends Cubit<ThemeState> {
+class ThemeController extends GetxController {
   static const String _themeModeKey = 'theme_mode';
+  final Rx<ThemeState> rxState;
 
-  ThemeCubit({ThemeMode? initialTheme})
-    : super(ThemeState(initialTheme ?? ThemeMode.system)) {
+  ThemeState get state => rxState.value;
+
+  void _setState(ThemeState newState) {
+    rxState.value = newState;
+  }
+
+  ThemeController({ThemeMode? initialTheme})
+    : rxState = ThemeState(initialTheme ?? ThemeMode.system).obs {
     if (initialTheme == null) {
       _loadTheme();
     }
@@ -21,23 +28,23 @@ class ThemeCubit extends Cubit<ThemeState> {
         (e) => e.toString() == savedMode,
         orElse: () => ThemeMode.system,
       );
-      emit(ThemeState(mode));
+      _setState(ThemeState(mode));
     }
   }
 
   Future<void> light() async {
     await _saveTheme(ThemeMode.light);
-    emit(const ThemeState(ThemeMode.light));
+    _setState(const ThemeState(ThemeMode.light));
   }
 
   Future<void> dark() async {
     await _saveTheme(ThemeMode.dark);
-    emit(const ThemeState(ThemeMode.dark));
+    _setState(const ThemeState(ThemeMode.dark));
   }
 
   Future<void> system() async {
     await _saveTheme(ThemeMode.system);
-    emit(const ThemeState(ThemeMode.system));
+    _setState(const ThemeState(ThemeMode.system));
   }
 
   Future<void> toggleTheme() async {

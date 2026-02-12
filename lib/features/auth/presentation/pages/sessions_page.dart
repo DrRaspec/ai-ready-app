@@ -1,26 +1,40 @@
-import 'package:ai_chat_bot/features/auth/data/auth_repository.dart';
-import 'package:ai_chat_bot/features/auth/presentation/bloc/sessions_cubit.dart';
+import 'package:ai_chat_bot/features/auth/presentation/controllers/sessions_controller.dart';
 import 'package:ai_chat_bot/features/auth/data/models/session.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get/get.dart';
 
 import 'package:intl/intl.dart';
 
-class SessionsPage extends StatelessWidget {
+class SessionsPage extends StatefulWidget {
   const SessionsPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) =>
-          SessionsCubit(context.read<AuthRepository>())..loadSessions(),
-      child: const _SessionsView(),
-    );
-  }
+  State<SessionsPage> createState() => _SessionsPageState();
 }
 
-class _SessionsView extends StatelessWidget {
-  const _SessionsView();
+class _SessionsPageState extends State<SessionsPage> {
+  late final SessionsController _sessionsController;
+  late final Worker _sessionsWorker;
+
+  @override
+  void initState() {
+    super.initState();
+    _sessionsController = Get.find<SessionsController>();
+    _sessionsWorker = ever<SessionsState>(_sessionsController.rxState, (state) {
+      if (state is SessionsError && mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(state.message)));
+      }
+    });
+    _sessionsController.loadSessions();
+  }
+
+  @override
+  void dispose() {
+    _sessionsWorker.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,9 +65,7 @@ class _SessionsView extends StatelessWidget {
                     TextButton(
                       onPressed: () {
                         Navigator.pop(context);
-                        context
-                            .read<SessionsCubit>()
-                            .terminateAllOtherSessions();
+                        _sessionsController.terminateAllOtherSessions();
                       },
                       style: TextButton.styleFrom(
                         foregroundColor: colorScheme.error,
@@ -67,52 +79,48 @@ class _SessionsView extends StatelessWidget {
           ),
         ],
       ),
-      body: BlocConsumer<SessionsCubit, SessionsState>(
-        listener: (context, state) {
-          if (state is SessionsError) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(state.message)));
-          }
-        },
-        builder: (context, state) {
-          if (state is SessionsLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: Obx(() {
+        final state = _sessionsController.state;
+        if (state is SessionsLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-          if (state is SessionsLoaded) {
-            if (state.sessions.isEmpty) {
-              return Center(
-                child: Text(
-                  'No active sessions found.',
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+        if (state is SessionsLoaded) {
+          if (state.sessions.isEmpty) {
+            return Center(
+              child: Text(
+                'No active sessions found.',
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
                 ),
-              );
-            }
-
-            return ListView.separated(
-              itemCount: state.sessions.length,
-              separatorBuilder: (context, index) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                final session = state.sessions[index];
-                return _SessionTile(session: session);
-              },
+              ),
             );
           }
 
-          return const SizedBox.shrink();
-        },
-      ),
+          return ListView.separated(
+            itemCount: state.sessions.length,
+            separatorBuilder: (context, index) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final session = state.sessions[index];
+              return _SessionTile(
+                session: session,
+                sessionsController: _sessionsController,
+              );
+            },
+          );
+        }
+
+        return const SizedBox.shrink();
+      }),
     );
   }
 }
 
 class _SessionTile extends StatelessWidget {
   final Session session;
+  final SessionsController sessionsController;
 
-  const _SessionTile({required this.session});
+  const _SessionTile({required this.session, required this.sessionsController});
 
   @override
   Widget build(BuildContext context) {
@@ -217,9 +225,7 @@ class _SessionTile extends StatelessWidget {
                       TextButton(
                         onPressed: () {
                           Navigator.pop(context);
-                          context.read<SessionsCubit>().terminateSession(
-                            session.sessionId,
-                          );
+                          sessionsController.terminateSession(session.sessionId);
                         },
                         style: TextButton.styleFrom(
                           foregroundColor: colorScheme.error,

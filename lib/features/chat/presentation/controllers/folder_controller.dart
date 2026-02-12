@@ -1,24 +1,31 @@
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get/get.dart';
 import 'package:ai_chat_bot/features/chat/data/folder_repository.dart';
 import 'package:ai_chat_bot/core/errors/api_exception.dart';
 import 'folder_state.dart';
 
-class FolderCubit extends Cubit<FolderState> {
+class FolderController extends GetxController {
   final FolderRepository _repository;
+  final Rx<FolderState> rxState;
 
-  FolderCubit(this._repository) : super(FolderInitial());
+  FolderState get state => rxState.value;
+
+  void _setState(FolderState newState) {
+    rxState.value = newState;
+  }
+
+  FolderController(this._repository) : rxState = FolderInitial().obs;
 
   Future<void> loadFolders() async {
-    emit(FolderLoading());
+    _setState(FolderLoading());
     try {
       final response = await _repository.getFolders();
       if (response.success && response.data != null) {
-        emit(FolderLoaded(response.data!));
+        _setState(FolderLoaded(response.data!));
       } else {
-        emit(FolderError(response.message ?? 'Failed to load folders'));
+        _setState(FolderError(response.message ?? 'Failed to load folders'));
       }
     } on ApiException catch (e) {
-      emit(FolderError(e.message));
+      _setState(FolderError(e.message));
     }
   }
 
@@ -30,7 +37,7 @@ class FolderCubit extends Cubit<FolderState> {
         loadFolders();
       }
     } on ApiException catch (e) {
-      emit(FolderError(e.message));
+      _setState(FolderError(e.message));
     }
   }
 
@@ -41,7 +48,7 @@ class FolderCubit extends Cubit<FolderState> {
         loadFolders();
       }
     } on ApiException catch (e) {
-      emit(FolderError(e.message));
+      _setState(FolderError(e.message));
     }
   }
 
@@ -52,7 +59,7 @@ class FolderCubit extends Cubit<FolderState> {
         loadFolders();
       }
     } on ApiException catch (e) {
-      emit(FolderError(e.message));
+      _setState(FolderError(e.message));
     }
   }
 }

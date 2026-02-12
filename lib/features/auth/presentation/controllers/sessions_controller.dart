@@ -1,8 +1,8 @@
 import 'package:ai_chat_bot/core/errors/api_exception.dart';
+import 'package:get/get.dart';
 import 'package:ai_chat_bot/features/auth/data/auth_repository.dart';
 import 'package:ai_chat_bot/features/auth/data/models/session.dart';
 import 'package:equatable/equatable.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 
 // State
 abstract class SessionsState extends Equatable {
@@ -32,25 +32,32 @@ class SessionsError extends SessionsState {
   List<Object?> get props => [message];
 }
 
-// Cubit
-class SessionsCubit extends Cubit<SessionsState> {
+// Controller
+class SessionsController extends GetxController {
   final AuthRepository _repository;
+  final Rx<SessionsState> rxState;
 
-  SessionsCubit(this._repository) : super(SessionsInitial());
+  SessionsState get state => rxState.value;
+
+  void _setState(SessionsState newState) {
+    rxState.value = newState;
+  }
+
+  SessionsController(this._repository) : rxState = SessionsInitial().obs;
 
   Future<void> loadSessions() async {
-    emit(SessionsLoading());
+    _setState(SessionsLoading());
     try {
       final response = await _repository.getSessions();
       if (response.success && response.data != null) {
-        emit(SessionsLoaded(response.data!));
+        _setState(SessionsLoaded(response.data!));
       } else {
-        emit(SessionsError(response.message ?? 'Failed to load sessions'));
+        _setState(SessionsError(response.message ?? 'Failed to load sessions'));
       }
     } on ApiException catch (e) {
-      emit(SessionsError(e.message));
+      _setState(SessionsError(e.message));
     } catch (e) {
-      emit(SessionsError(e.toString()));
+      _setState(SessionsError(e.toString()));
     }
   }
 
@@ -64,9 +71,9 @@ class SessionsCubit extends Cubit<SessionsState> {
       // Reload
       loadSessions();
     } on ApiException catch (e) {
-      emit(SessionsError(e.message));
+      _setState(SessionsError(e.message));
     } catch (e) {
-      emit(SessionsError(e.toString()));
+      _setState(SessionsError(e.toString()));
     }
   }
 
@@ -76,9 +83,9 @@ class SessionsCubit extends Cubit<SessionsState> {
       // Reload
       loadSessions();
     } on ApiException catch (e) {
-      emit(SessionsError(e.message));
+      _setState(SessionsError(e.message));
     } catch (e) {
-      emit(SessionsError(e.toString()));
+      _setState(SessionsError(e.toString()));
     }
   }
 }

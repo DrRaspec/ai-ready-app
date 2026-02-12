@@ -1,17 +1,24 @@
 import 'package:ai_chat_bot/features/gamification/data/gamification_repository.dart';
 import 'package:ai_chat_bot/features/gamification/data/models/achievement.dart';
-import 'package:ai_chat_bot/features/gamification/presentation/bloc/gamification_state.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:ai_chat_bot/features/gamification/presentation/controllers/gamification_state.dart';
+import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class GamificationCubit extends Cubit<GamificationState> {
+class GamificationController extends GetxController {
   final GamificationRepository _repository;
   final SharedPreferences _prefs;
   static const String _unlockedIdsKey = 'unlocked_achievement_ids';
   Set<String> _unlockedIds = {};
+  final Rx<GamificationState> rxState;
 
-  GamificationCubit(this._repository, this._prefs)
-    : super(GamificationInitial()) {
+  GamificationState get state => rxState.value;
+
+  void _setState(GamificationState newState) {
+    rxState.value = newState;
+  }
+
+  GamificationController(this._repository, this._prefs)
+    : rxState = GamificationInitial().obs {
     _loadLocalCache();
   }
 
@@ -25,7 +32,7 @@ class GamificationCubit extends Cubit<GamificationState> {
   Future<void> checkStatus() async {
     // If we haven't loaded, invoke loading state (optional, maybe keep previous data to avoid flickering)
     if (state is GamificationInitial) {
-      emit(GamificationLoading());
+      _setState(GamificationLoading());
     }
 
     try {
@@ -33,7 +40,7 @@ class GamificationCubit extends Cubit<GamificationState> {
       final status = response.data;
 
       if (status == null) {
-        emit(const GamificationError('Failed to load status'));
+        _setState(const GamificationError('Failed to load status'));
         return;
       }
 
@@ -55,9 +62,9 @@ class GamificationCubit extends Cubit<GamificationState> {
         await _prefs.setStringList(_unlockedIdsKey, _unlockedIds.toList());
       }
 
-      emit(GamificationLoaded(status, newUnlocks: newUnlocks));
+      _setState(GamificationLoaded(status, newUnlocks: newUnlocks));
     } catch (e) {
-      emit(GamificationError(e.toString()));
+      _setState(GamificationError(e.toString()));
     }
   }
 }

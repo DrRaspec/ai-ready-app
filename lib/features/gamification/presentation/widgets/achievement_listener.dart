@@ -1,26 +1,45 @@
 import 'package:ai_chat_bot/features/gamification/data/models/achievement.dart';
-import 'package:ai_chat_bot/features/gamification/presentation/bloc/gamification_cubit.dart';
-import 'package:ai_chat_bot/features/gamification/presentation/bloc/gamification_state.dart';
+import 'package:ai_chat_bot/features/gamification/presentation/controllers/gamification_controller.dart';
+import 'package:ai_chat_bot/features/gamification/presentation/controllers/gamification_state.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get/get.dart';
 
-class AchievementListener extends StatelessWidget {
+class AchievementListener extends StatefulWidget {
   final Widget child;
 
   const AchievementListener({super.key, required this.child});
 
   @override
-  Widget build(BuildContext context) {
-    return BlocListener<GamificationCubit, GamificationState>(
-      listener: (context, state) {
-        if (state is GamificationLoaded && state.newUnlocks.isNotEmpty) {
-          for (var achievement in state.newUnlocks) {
-            _showAchievementNotification(context, achievement);
-          }
+  State<AchievementListener> createState() => _AchievementListenerState();
+}
+
+class _AchievementListenerState extends State<AchievementListener> {
+  late final GamificationController _gamificationController;
+  late final Worker _worker;
+
+  @override
+  void initState() {
+    super.initState();
+    _gamificationController = Get.find<GamificationController>();
+    _worker = ever<GamificationState>(_gamificationController.rxState, (state) {
+      if (!mounted) return;
+      if (state is GamificationLoaded && state.newUnlocks.isNotEmpty) {
+        for (final achievement in state.newUnlocks) {
+          _showAchievementNotification(context, achievement);
         }
-      },
-      child: child,
-    );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _worker.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return widget.child;
   }
 
   void _showAchievementNotification(

@@ -1,16 +1,16 @@
 import 'dart:io';
 import 'package:ai_chat_bot/core/storage/local_storage.dart';
-import 'package:ai_chat_bot/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:ai_chat_bot/features/profile/presentation/cubit/profile_cubit.dart';
-import 'package:ai_chat_bot/features/profile/presentation/cubit/profile_state.dart';
-import 'package:ai_chat_bot/features/gamification/presentation/bloc/gamification_cubit.dart';
-import 'package:ai_chat_bot/features/gamification/presentation/bloc/gamification_state.dart';
+import 'package:ai_chat_bot/features/auth/presentation/controllers/auth_controller.dart';
+import 'package:ai_chat_bot/features/profile/presentation/controllers/profile_controller.dart';
+import 'package:ai_chat_bot/features/profile/presentation/controllers/profile_state.dart';
+import 'package:ai_chat_bot/features/gamification/presentation/controllers/gamification_controller.dart';
+import 'package:ai_chat_bot/features/gamification/presentation/controllers/gamification_state.dart';
 import 'package:ai_chat_bot/features/gamification/presentation/widgets/achievements_card.dart';
 import 'package:ai_chat_bot/features/settings/presentation/widgets/settings_modal.dart';
 import 'package:ai_chat_bot/core/routers/route_paths.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get/get.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:skeletonizer/skeletonizer.dart';
@@ -24,16 +24,22 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final ImagePicker _picker = ImagePicker();
+  late final ProfileController _profileController;
+  late final GamificationController _gamificationController;
+  late final AuthController _authController;
 
   @override
   void initState() {
     super.initState();
+    _profileController = Get.find<ProfileController>();
+    _gamificationController = Get.find<GamificationController>();
+    _authController = Get.find<AuthController>();
     _loadProfile();
   }
 
   void _loadProfile() {
-    context.read<ProfileCubit>().loadProfile();
-    context.read<GamificationCubit>().checkStatus();
+    _profileController.loadProfile();
+    _gamificationController.checkStatus();
   }
 
   Future<void> _pickAvatar() async {
@@ -47,9 +53,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (image != null && mounted) {
         // Upload to server
-        final success = await context.read<ProfileCubit>().uploadProfilePicture(
-          image.path,
-        );
+        final success = await _profileController.uploadProfilePicture(image.path);
         if (success && mounted) {
           HapticFeedback.lightImpact();
           ScaffoldMessenger.of(context).showSnackBar(
@@ -57,7 +61,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           );
         } else if (mounted) {
           // Fallback to local storage if upload fails
-          context.read<ProfileCubit>().setAvatar(image.path);
+          _profileController.setAvatar(image.path);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Saved locally (upload failed)')),
           );
@@ -113,17 +117,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           FilledButton(
             onPressed: () async {
-              final success = await context.read<ProfileCubit>().updateProfile(
+              final success = await _profileController.updateProfile(
                 firstName: firstNameController.text.trim(),
                 lastName: lastNameController.text.trim(),
               );
-              if (mounted) {
-                Navigator.pop(ctx);
-                if (success) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Profile updated')),
-                  );
-                }
+              if (!mounted || !ctx.mounted) return;
+              Navigator.pop(ctx);
+              if (success) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Profile updated')),
+                );
               }
             },
             child: const Text('Save'),
@@ -180,153 +183,146 @@ class _ProfileScreenState extends State<ProfileScreen> {
         elevation: 0,
         leading: const BackButton(),
       ),
-      body: BlocBuilder<AuthBloc, AuthState>(
-        builder: (context, authState) {
-          if (authState is Authenticated) {
-            final user = authState.authData;
+      body: Obx(() {
+        final authState = _authController.state;
+        final profileState = _profileController.state;
+        final gamificationState = _gamificationController.state;
 
-            return BlocBuilder<ProfileCubit, ProfileState>(
-              builder: (context, profileState) {
-                // Use profile state name if available, otherwise auth data
-                final displayFirstName =
-                    profileState.firstName ?? user.firstName ?? '';
-                final displayLastName =
-                    profileState.lastName ?? user.lastName ?? '';
-                final fullName = '$displayFirstName $displayLastName'.trim();
-                final initials =
-                    '${displayFirstName.isNotEmpty ? displayFirstName[0] : ''}'
-                            '${displayLastName.isNotEmpty ? displayLastName[0] : ''}'
-                        .toUpperCase();
+        if (authState is Authenticated) {
+          final user = authState.authData;
 
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    children: [
-                      // Avatar with edit button
-                      _buildAvatarSection(
-                        profileState.avatarPath,
-                        profileState.profilePictureUrl,
-                        initials,
-                        colorScheme,
-                        profileState.isUploading,
+          // Use profile state name if available, otherwise auth data
+          final displayFirstName =
+              profileState.firstName ?? user.firstName ?? '';
+          final displayLastName = profileState.lastName ?? user.lastName ?? '';
+          final fullName = '$displayFirstName $displayLastName'.trim();
+          final initials =
+              '${displayFirstName.isNotEmpty ? displayFirstName[0] : ''}'
+                      '${displayLastName.isNotEmpty ? displayLastName[0] : ''}'
+                  .toUpperCase();
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              children: [
+                // Avatar with edit button
+                _buildAvatarSection(
+                  profileState.avatarPath,
+                  profileState.profilePictureUrl,
+                  initials,
+                  colorScheme,
+                  profileState.isUploading,
+                ),
+                const SizedBox(height: 16),
+
+                // Name and Email with Edit button
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      fullName.isNotEmpty ? fullName : 'User',
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
                       ),
-                      const SizedBox(height: 16),
-
-                      // Name and Email with Edit button
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            fullName.isNotEmpty ? fullName : 'User',
-                            style: theme.textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            onPressed: () =>
-                                _showEditProfileDialog(context, profileState),
-                            icon: Icon(
-                              Icons.edit_outlined,
-                              size: 20,
-                              color: colorScheme.primary,
-                            ),
-                            tooltip: 'Edit Profile',
-                            visualDensity: VisualDensity.compact,
-                          ),
-                        ],
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      onPressed: () =>
+                          _showEditProfileDialog(context, profileState),
+                      icon: Icon(
+                        Icons.edit_outlined,
+                        size: 20,
+                        color: colorScheme.primary,
                       ),
-                      Text(
-                        user.email ?? '',
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-
-                      // Stats Section
-                      _buildStatsSection(profileState, theme, colorScheme),
-                      const SizedBox(height: 24),
-
-                      // Achievements Section
-                      BlocBuilder<GamificationCubit, GamificationState>(
-                        builder: (context, state) {
-                          if (state is GamificationLoaded) {
-                            return AchievementsCard(status: state.status);
-                          }
-                          return const SizedBox.shrink();
-                        },
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Quick Actions
-                      _buildQuickActionsSection(theme, colorScheme),
-                      const SizedBox(height: 32),
-
-                      // Logout Button
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          onPressed: () {
-                            context.read<AuthBloc>().add(LogoutRequested());
-                          },
-                          style: FilledButton.styleFrom(
-                            backgroundColor: colorScheme.error,
-                            foregroundColor: colorScheme.onError,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          icon: const Icon(Icons.logout),
-                          label: const Text(
-                            'Logout',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                      tooltip: 'Edit Profile',
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ],
+                ),
+                Text(
+                  user.email ?? '',
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
                   ),
-                );
-              },
-            );
-          }
+                ),
+                const SizedBox(height: 32),
 
-          // Loading State Skeleton
-          return Skeletonizer(
-            enabled: true,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                children: [
-                  Center(
-                    child: CircleAvatar(
-                      radius: 50,
-                      backgroundColor: colorScheme.primaryContainer,
+                // Stats Section
+                _buildStatsSection(profileState, theme, colorScheme),
+                const SizedBox(height: 24),
+
+                // Achievements Section
+                if (gamificationState is GamificationLoaded)
+                  AchievementsCard(status: gamificationState.status)
+                else
+                  const SizedBox.shrink(),
+                const SizedBox(height: 24),
+
+                // Quick Actions
+                _buildQuickActionsSection(theme, colorScheme),
+                const SizedBox(height: 32),
+
+                // Logout Button
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: () {
+                      _authController.logout();
+                    },
+                    style: FilledButton.styleFrom(
+                      backgroundColor: colorScheme.error,
+                      foregroundColor: colorScheme.onError,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    icon: const Icon(Icons.logout),
+                    label: const Text(
+                      'Logout',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  Container(height: 32, width: 200, color: Colors.white),
-                  const SizedBox(height: 8),
-                  Container(height: 20, width: 150, color: Colors.white),
-                  const SizedBox(height: 64),
-                  Container(
-                    height: 56,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           );
-        },
-      ),
+        }
+
+        // Loading State Skeleton
+        return Skeletonizer(
+          enabled: true,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              children: [
+                Center(
+                  child: CircleAvatar(
+                    radius: 50,
+                    backgroundColor: colorScheme.primaryContainer,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(height: 32, width: 200, color: Colors.white),
+                const SizedBox(height: 8),
+                Container(height: 20, width: 150, color: Colors.white),
+                const SizedBox(height: 64),
+                Container(
+                  height: 56,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }),
     );
   }
 

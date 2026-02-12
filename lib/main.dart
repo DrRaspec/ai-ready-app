@@ -1,7 +1,7 @@
 import 'package:ai_chat_bot/app/app.dart';
 import 'package:ai_chat_bot/core/di/dependency_injection.dart';
 import 'package:ai_chat_bot/app/app_initializer.dart';
-import 'package:ai_chat_bot/features/settings/presentation/bloc/settings_state.dart';
+import 'package:ai_chat_bot/features/settings/presentation/controllers/settings_state.dart';
 import 'package:flutter/material.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';

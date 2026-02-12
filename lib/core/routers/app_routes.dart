@@ -1,12 +1,19 @@
+import 'package:ai_chat_bot/features/auth/auth_dependencies.dart';
 import 'package:ai_chat_bot/features/auth/presentation/pages/login_page.dart';
 import 'package:ai_chat_bot/features/auth/presentation/pages/register_page.dart';
+import 'package:ai_chat_bot/features/chat/chat_dependencies.dart';
 import 'package:ai_chat_bot/features/chat/presentation/pages/chat_page.dart';
 import 'package:ai_chat_bot/features/chat/presentation/pages/usage_page.dart';
+import 'package:ai_chat_bot/features/profile/profile_dependencies.dart';
 import 'package:ai_chat_bot/features/profile/presentation/profile_screen.dart';
+import 'package:ai_chat_bot/features/bookmarks/bookmarks_dependencies.dart';
 import 'package:ai_chat_bot/features/bookmarks/presentation/pages/bookmarks_page.dart';
+import 'package:ai_chat_bot/features/discover/discover_dependencies.dart';
 import 'package:ai_chat_bot/features/discover/presentation/pages/discover_page.dart';
-import 'package:ai_chat_bot/features/prompts/presentation/pages/prompt_library_page.dart'; // Added import
-import 'package:ai_chat_bot/features/settings/presentation/pages/personalization_page.dart'; // Added import
+import 'package:ai_chat_bot/features/prompts/prompt_dependencies.dart';
+import 'package:ai_chat_bot/features/prompts/presentation/pages/prompt_library_page.dart';
+import 'package:ai_chat_bot/features/settings/settings_dependencies.dart';
+import 'package:ai_chat_bot/features/settings/presentation/pages/personalization_page.dart';
 import 'package:ai_chat_bot/features/auth/presentation/pages/sessions_page.dart';
 import 'package:go_router/go_router.dart';
 
@@ -31,12 +38,18 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: RoutePaths.login,
       name: RouteNames.login,
-      builder: (context, state) => const LoginPage(),
+      builder: (context, state) {
+        ensureAuthDependencies();
+        return const LoginPage();
+      },
     ),
     GoRoute(
       path: RoutePaths.register,
       name: RouteNames.register,
-      builder: (context, state) => const RegisterPage(),
+      builder: (context, state) {
+        ensureAuthDependencies();
+        return const RegisterPage();
+      },
     ),
     // GoRoute(
     //   path: RoutePaths.conversations,
@@ -47,6 +60,7 @@ final GoRouter appRouter = GoRouter(
       path: RoutePaths.chat,
       name: RouteNames.chat,
       builder: (context, state) {
+        ensureChatDependencies();
         final extra = state.extra;
         String? conversationId;
         String? scrollToMessageId;
@@ -67,37 +81,58 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: RoutePaths.usage,
       name: RouteNames.usage,
-      builder: (context, state) => const UsagePage(),
+      builder: (context, state) {
+        ensureUsageDependencies();
+        return const UsagePage();
+      },
     ),
     GoRoute(
       path: RoutePaths.profile,
       name: RouteNames.profile,
-      builder: (context, state) => const ProfileScreen(),
+      builder: (context, state) {
+        ensureProfileDependencies();
+        return const ProfileScreen();
+      },
     ),
     GoRoute(
       path: RoutePaths.bookmarks,
       name: RouteNames.bookmarks,
-      builder: (context, state) => const BookmarksPage(),
+      builder: (context, state) {
+        ensureBookmarksDependencies();
+        return const BookmarksPage();
+      },
     ),
     GoRoute(
       path: RoutePaths.discover,
       name: RouteNames.discover,
-      builder: (context, state) => const DiscoverPage(),
+      builder: (context, state) {
+        ensureDiscoverDependencies();
+        return const DiscoverPage();
+      },
     ),
     GoRoute(
       path: RoutePaths.prompts,
       name: RouteNames.prompts,
-      builder: (context, state) => const PromptLibraryPage(),
+      builder: (context, state) {
+        ensurePromptDependencies();
+        return const PromptLibraryPage();
+      },
     ),
     GoRoute(
       path: RoutePaths.personalization,
       name: RouteNames.personalization,
-      builder: (context, state) => const PersonalizationPage(),
+      builder: (context, state) {
+        ensurePersonalizationDependencies();
+        return const PersonalizationPage();
+      },
     ),
     GoRoute(
       path: RoutePaths.sessions,
       name: RouteNames.sessions,
-      builder: (context, state) => const SessionsPage(),
+      builder: (context, state) {
+        ensureSessionsDependencies();
+        return const SessionsPage();
+      },
     ),
   ],
 );

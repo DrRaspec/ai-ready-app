@@ -35,7 +35,7 @@ class AppLogger {
   /// ### Parameters
   /// - [level]: The severity level of the log (`debug`, `info`, `warn`, `error`).
   /// - [message]: The log message to output (automatically sanitized).
-  /// - [tag]: Optional logical scope or feature tag (e.g. `Auth`, `Network`, `Bloc`).
+  /// - [tag]: Optional logical scope or feature tag (e.g. `Auth`, `Network`, `Controller`).
   /// - [error]: Optional error object to attach.
   /// - [stackTrace]: Optional stack trace (respected only if enabled in [LogConfig]).
   ///

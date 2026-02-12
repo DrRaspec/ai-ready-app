@@ -1,34 +1,41 @@
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get/get.dart';
 import 'package:ai_chat_bot/features/prompts/data/prompt_repository.dart';
 import 'package:ai_chat_bot/core/errors/api_exception.dart';
 import 'prompt_state.dart';
 
-class PromptCubit extends Cubit<PromptState> {
+class PromptController extends GetxController {
   final PromptRepository _repository;
+  final Rx<PromptState> rxState;
 
-  PromptCubit(this._repository) : super(PromptInitial());
+  PromptState get state => rxState.value;
+
+  void _setState(PromptState newState) {
+    rxState.value = newState;
+  }
+
+  PromptController(this._repository) : rxState = PromptInitial().obs;
 
   Future<void> loadPrompts() async {
-    emit(PromptLoading());
+    _setState(PromptLoading());
     try {
       final response = await _repository.getPrompts();
       if (response.success && response.data != null) {
-        emit(PromptLoaded(response.data!));
+        _setState(PromptLoaded(response.data!));
       } else {
-        emit(PromptError(response.message ?? 'Failed to load prompts'));
+        _setState(PromptError(response.message ?? 'Failed to load prompts'));
       }
     } on ApiException catch (e) {
-      emit(PromptError(e.message));
+      _setState(PromptError(e.message));
     }
   }
 
   Future<void> createPrompt(String title, String content) async {
-    emit(PromptLoading());
+    _setState(PromptLoading());
     try {
       await _repository.createPrompt(title, content);
       await loadPrompts(); // Reload
     } on ApiException catch (e) {
-      emit(PromptError(e.message));
+      _setState(PromptError(e.message));
     }
   }
 
@@ -38,12 +45,12 @@ class PromptCubit extends Cubit<PromptState> {
     try {
       final response = await _repository.enhancePrompt(prompt);
       if (response.success && response.data != null) {
-        emit(PromptEnhanced(response.data!));
+        _setState(PromptEnhanced(response.data!));
       } else {
-        emit(PromptError(response.message ?? 'Failed to enhance'));
+        _setState(PromptError(response.message ?? 'Failed to enhance'));
       }
     } on ApiException catch (e) {
-      emit(PromptError(e.message));
+      _setState(PromptError(e.message));
     }
   }
 }

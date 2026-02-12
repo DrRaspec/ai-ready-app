@@ -1,7 +1,7 @@
-import 'package:ai_chat_bot/features/bookmarks/presentation/bloc/bookmarks_cubit.dart';
-import 'package:ai_chat_bot/features/bookmarks/presentation/bloc/bookmarks_state.dart';
+import 'package:ai_chat_bot/features/bookmarks/presentation/controllers/bookmarks_controller.dart';
+import 'package:ai_chat_bot/features/bookmarks/presentation/controllers/bookmarks_state.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get/get.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -15,11 +15,13 @@ class BookmarksPage extends StatefulWidget {
 
 class _BookmarksPageState extends State<BookmarksPage> {
   String _searchQuery = '';
+  late final BookmarksController _bookmarksController;
 
   @override
   void initState() {
     super.initState();
-    context.read<BookmarksCubit>().loadBookmarks();
+    _bookmarksController = Get.find<BookmarksController>();
+    _bookmarksController.loadBookmarks();
   }
 
   @override
@@ -46,96 +48,93 @@ class _BookmarksPageState extends State<BookmarksPage> {
           ),
         ],
       ),
-      body: BlocBuilder<BookmarksCubit, BookmarksState>(
-        builder: (context, state) {
-          if (state.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: Obx(() {
+        final state = _bookmarksController.state;
+        if (state.isLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-          final bookmarks = _searchQuery.isEmpty
-              ? state.bookmarks
-              : state.bookmarks
-                    .where(
-                      (b) =>
-                          b.content.toLowerCase().contains(
-                            _searchQuery.toLowerCase(),
-                          ) ||
-                          (b.conversationTitle?.toLowerCase().contains(
-                                _searchQuery.toLowerCase(),
-                              ) ??
-                              false),
-                    )
-                    .toList();
+        final bookmarks = _searchQuery.isEmpty
+            ? state.bookmarks
+            : state.bookmarks
+                  .where(
+                    (b) =>
+                        b.content.toLowerCase().contains(
+                          _searchQuery.toLowerCase(),
+                        ) ||
+                        (b.conversationTitle?.toLowerCase().contains(
+                              _searchQuery.toLowerCase(),
+                            ) ??
+                            false),
+                  )
+                  .toList();
 
-          if (bookmarks.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: colorScheme.primaryContainer.withValues(
-                        alpha: 0.3,
-                      ),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.bookmark_outline_rounded,
-                      size: 64,
-                      color: colorScheme.primary,
-                    ),
+        if (bookmarks.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer.withValues(alpha: 0.3),
+                    shape: BoxShape.circle,
                   ),
-                  const SizedBox(height: 24),
-                  Text(
-                    _searchQuery.isEmpty
-                        ? 'No bookmarks yet'
-                        : 'No matching bookmarks',
-                    style: theme.textTheme.titleLarge,
+                  child: Icon(
+                    Icons.bookmark_outline_rounded,
+                    size: 64,
+                    color: colorScheme.primary,
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _searchQuery.isEmpty
-                        ? 'Long-press messages in chat to bookmark them'
-                        : 'Try a different search term',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  _searchQuery.isEmpty
+                      ? 'No bookmarks yet'
+                      : 'No matching bookmarks',
+                  style: theme.textTheme.titleLarge,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _searchQuery.isEmpty
+                      ? 'Long-press messages in chat to bookmark them'
+                      : 'Try a different search term',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
                   ),
-                ],
-              ),
-            );
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: bookmarks.length,
-            itemBuilder: (context, index) {
-              final bookmark = bookmarks[index];
-              return _BookmarkCard(
-                bookmark: bookmark,
-                onRemove: () {
-                  context.read<BookmarksCubit>().removeBookmark(bookmark.id);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Bookmark removed')),
-                  );
-                },
-                onTap: () {
-                  if (bookmark.conversationId != null) {
-                    context.push(
-                      '/chat',
-                      extra: {
-                        'conversationId': bookmark.conversationId,
-                        'messageId': bookmark.id,
-                      },
-                    );
-                  }
-                },
-              );
-            },
+                ),
+              ],
+            ),
           );
-        },
-      ),
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: bookmarks.length,
+          itemBuilder: (context, index) {
+            final bookmark = bookmarks[index];
+            return _BookmarkCard(
+              bookmark: bookmark,
+              onRemove: () {
+                _bookmarksController.removeBookmark(bookmark.id);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Bookmark removed')),
+                );
+              },
+              onTap: () {
+                if (bookmark.conversationId != null) {
+                  context.push(
+                    '/chat',
+                    extra: {
+                      'conversationId': bookmark.conversationId,
+                      'messageId': bookmark.id,
+                    },
+                  );
+                }
+              },
+            );
+          },
+        );
+      }),
     );
   }
 }

@@ -1,11 +1,12 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:mime/mime.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
-import 'package:bloc/bloc.dart';
 import 'package:ai_chat_bot/core/errors/api_exception.dart';
 import 'package:ai_chat_bot/core/logging/app_logger.dart';
+import 'package:get/get.dart';
 import 'package:ai_chat_bot/features/chat/data/chat_repository.dart';
 import 'package:ai_chat_bot/features/chat/data/models/chat_request.dart';
 import 'package:ai_chat_bot/features/chat/data/models/conversation.dart';
@@ -13,71 +14,169 @@ import 'package:ai_chat_bot/features/chat/data/models/message.dart';
 import 'package:ai_chat_bot/core/network/models/api_response.dart';
 import 'package:ai_chat_bot/features/chat/data/models/chat_response.dart';
 import 'package:ai_chat_bot/features/chat/data/models/chat_mode.dart';
-import 'chat_event.dart';
 import 'chat_state.dart';
 
-class ChatBloc extends Bloc<ChatEvent, ChatState> {
+class ChatController extends GetxController {
   final ChatRepository _repository;
+  Future<void> _eventQueue = Future<void>.value();
+  final Rx<ChatState> rxState;
 
-  ChatBloc(ChatRepository repository)
+  ChatState get state => rxState.value;
+
+  void _setState(ChatState newState) {
+    rxState.value = newState;
+  }
+
+  ChatController(ChatRepository repository)
     : _repository = repository,
-      super(const ChatState()) {
-    on<LoadConversations>(_onLoadConversations);
-    on<SelectConversation>(_onSelectConversation);
-    on<RefreshMessages>(_onRefreshMessages);
-    on<SendMessage>(_onSendMessage);
-    on<NewConversation>(_onNewConversation);
-    on<RenameConversation>(_onRenameConversation);
-    on<DeleteConversation>(_onDeleteConversation);
-    on<LoadUsage>(_onLoadUsage);
-    on<AttachImage>(_onAttachImage);
-    on<DetachImage>(_onDetachImage);
-    on<SetChatMode>(_onSetChatMode);
+      rxState = const ChatState().obs;
 
-    on<EditMessage>(_onEditMessage);
-    on<RegenerateMessage>(_onRegenerateMessage);
-    on<RateMessage>(_onRateMessage);
-    on<GetSummary>(_onGetSummary);
-    on<SelectFolder>(_onSelectFolder);
-    on<MoveToFolder>(_onMoveToFolder);
-    on<PerformWebSearch>(_onPerformWebSearch);
-    on<SearchConversations>(_onSearchConversations);
+  Future<void> _enqueue(Future<void> Function() task) async {
+    _eventQueue = _eventQueue.then((_) => task());
+    return _eventQueue;
   }
 
-  void _onSearchConversations(
-    SearchConversations event,
-    Emitter<ChatState> emit,
-  ) {
-    emit(state.copyWith(searchQuery: event.query));
+  Future<void> loadConversations({int page = 0, int size = 20}) async {
+    return _enqueue(() => _onLoadConversations(page: page, size: size));
   }
 
-  Future<void> _onEditMessage(
-    EditMessage event,
-    Emitter<ChatState> emit,
+  Future<void> selectConversation(String conversationId) async {
+    return _enqueue(
+      () => _onSelectConversation(conversationId: conversationId),
+    );
+  }
+
+  Future<void> refreshMessages(String conversationId) async {
+    return _enqueue(() => _onRefreshMessages(conversationId: conversationId));
+  }
+
+  Future<void> sendMessage({
+    required String message,
+    String? conversationId,
+    String? systemPrompt,
+    String? model,
+    double? temperature,
+    bool useStream = true,
+  }) async {
+    return _enqueue(
+      () => _onSendMessage(
+        message: message,
+        conversationId: conversationId,
+        systemPrompt: systemPrompt,
+        model: model,
+        temperature: temperature,
+        useStream: useStream,
+      ),
+    );
+  }
+
+  Future<void> newConversation() async {
+    return _enqueue(_onNewConversation);
+  }
+
+  Future<void> renameConversation(
+    String conversationId,
+    String newTitle,
   ) async {
+    return _enqueue(
+      () => _onRenameConversation(
+        conversationId: conversationId,
+        newTitle: newTitle,
+      ),
+    );
+  }
+
+  Future<void> deleteConversation(String conversationId) async {
+    return _enqueue(
+      () => _onDeleteConversation(conversationId: conversationId),
+    );
+  }
+
+  Future<void> loadUsage() async {
+    return _enqueue(_onLoadUsage);
+  }
+
+  Future<void> attachImage(String path) async {
+    return _enqueue(() async => _onAttachImage(path: path));
+  }
+
+  Future<void> detachImage() async {
+    return _enqueue(() async => _onDetachImage());
+  }
+
+  Future<void> setChatMode(dynamic mode) async {
+    return _enqueue(() async => _onSetChatMode(mode: mode));
+  }
+
+  Future<void> editMessage(String messageId, String newContent) async {
+    return _enqueue(
+      () => _onEditMessage(messageId: messageId, newContent: newContent),
+    );
+  }
+
+  Future<void> regenerateMessage(String conversationId) async {
+    return _enqueue(() => _onRegenerateMessage(conversationId: conversationId));
+  }
+
+  Future<void> rateMessage(String messageId, {required bool isPositive}) async {
+    return _enqueue(
+      () => _onRateMessage(messageId: messageId, isPositive: isPositive),
+    );
+  }
+
+  Future<void> getSummary(String conversationId) async {
+    return _enqueue(() => _onGetSummary(conversationId: conversationId));
+  }
+
+  Future<void> selectFolder(String? folderId) async {
+    return _enqueue(() async => _onSelectFolder(folderId: folderId));
+  }
+
+  Future<void> moveToFolder(String conversationId, String? folderId) async {
+    return _enqueue(
+      () => _onMoveToFolder(conversationId: conversationId, folderId: folderId),
+    );
+  }
+
+  Future<void> performWebSearch(String query) async {
+    return _enqueue(() => _onPerformWebSearch(query: query));
+  }
+
+  Future<void> searchConversations(String query) async {
+    return _enqueue(() async => _onSearchConversations(query: query));
+  }
+
+  void _onSearchConversations({required String query}) {
+    _setState(state.copyWith(searchQuery: query));
+  }
+
+  Future<void> _onEditMessage({
+    required String messageId,
+    required String newContent,
+  }) async {
     if (state.currentConversationId == null) return;
 
     // Optimistic update
     final updatedMessages = state.messages.map((m) {
-      if (m.id == event.messageId) {
-        return m.copyWith(content: event.newContent);
+      if (m.id == messageId) {
+        return m.copyWith(content: newContent);
       }
       return m;
     }).toList();
 
-    emit(state.copyWith(messages: updatedMessages));
+    _setState(state.copyWith(messages: updatedMessages));
 
     try {
       final response = await _repository.editMessage(
         state.currentConversationId!,
-        event.messageId,
-        event.newContent,
+        messageId,
+        newContent,
       );
 
       if (!response.success) {
         // Revert on failure (reload messages)
-        add(SelectConversation(state.currentConversationId!));
-        emit(
+        unawaited(selectConversation(state.currentConversationId!));
+        _setState(
           state.copyWith(
             errorMessage: response.message ?? 'Failed to edit message',
           ),
@@ -85,74 +184,74 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       }
     } on ApiException catch (e) {
       // Revert on failure
-      add(SelectConversation(state.currentConversationId!));
-      emit(state.copyWith(errorMessage: e.message));
+      unawaited(selectConversation(state.currentConversationId!));
+      _setState(state.copyWith(errorMessage: e.message));
     }
   }
 
-  void _onAttachImage(AttachImage event, Emitter<ChatState> emit) {
-    emit(state.copyWith(attachedImagePath: event.path));
+  void _onAttachImage({required String path}) {
+    _setState(state.copyWith(attachedImagePath: path));
   }
 
-  void _onDetachImage(DetachImage event, Emitter<ChatState> emit) {
-    emit(state.copyWith(clearAttachedImage: true));
+  void _onDetachImage() {
+    _setState(state.copyWith(clearAttachedImage: true));
   }
 
-  void _onSetChatMode(SetChatMode event, Emitter<ChatState> emit) {
-    emit(state.copyWith(chatMode: event.mode));
+  void _onSetChatMode({required dynamic mode}) {
+    _setState(state.copyWith(chatMode: mode));
   }
 
-  void _onSelectFolder(SelectFolder event, Emitter<ChatState> emit) {
-    emit(
+  void _onSelectFolder({required String? folderId}) {
+    _setState(
       state.copyWith(
-        currentFolderId: event.folderId,
-        clearCurrentFolderId: event.folderId == null,
+        currentFolderId: folderId,
+        clearCurrentFolderId: folderId == null,
         conversations: [],
         hasMoreConversations: true,
         conversationPage: 0,
         isConversationsLoading: false, // Ensure we are ready to load
       ),
     );
-    add(const LoadConversations(page: 0));
+    unawaited(loadConversations(page: 0));
   }
 
-  Future<void> _onLoadConversations(
-    LoadConversations event,
-    Emitter<ChatState> emit,
-  ) async {
+  Future<void> _onLoadConversations({
+    required int page,
+    required int size,
+  }) async {
     // If we're already loading or strict refresh isn't requested and we don't have more, return.
-    final isRefresh = event.page == 0;
+    final isRefresh = page == 0;
     if (!isRefresh && !state.hasMoreConversations) return;
     if (state.isConversationsLoading) return;
 
-    emit(state.copyWith(isConversationsLoading: true, clearError: true));
+    _setState(state.copyWith(isConversationsLoading: true, clearError: true));
 
     try {
       final response = await _repository.getConversations(
-        page: event.page,
-        size: event.size,
+        page: page,
+        size: size,
         folderId: state.currentFolderId, // Use state's current folder
       );
 
       if (response.success && response.data != null) {
         final newConversations = response.data!;
-        final hasMore = newConversations.length >= event.size;
+        final hasMore = newConversations.length >= size;
 
         // Merge conversations
         final List<Conversation> updatedList = isRefresh
             ? newConversations
             : [...state.conversations, ...newConversations];
 
-        emit(
+        _setState(
           state.copyWith(
             conversations: updatedList,
             isConversationsLoading: false,
             hasMoreConversations: hasMore,
-            conversationPage: event.page,
+            conversationPage: page,
           ),
         );
       } else {
-        emit(
+        _setState(
           state.copyWith(
             isConversationsLoading: false,
             errorMessage: response.message,
@@ -160,19 +259,16 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         );
       }
     } on ApiException catch (e) {
-      emit(
+      _setState(
         state.copyWith(isConversationsLoading: false, errorMessage: e.message),
       );
     }
   }
 
-  Future<void> _onSelectConversation(
-    SelectConversation event,
-    Emitter<ChatState> emit,
-  ) async {
-    emit(
+  Future<void> _onSelectConversation({required String conversationId}) async {
+    _setState(
       state.copyWith(
-        currentConversationId: event.conversationId,
+        currentConversationId: conversationId,
         messages: [],
         status: ChatStatus.loading,
       ),
@@ -180,15 +276,15 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
     try {
       final response = await _repository.getConversationMessages(
-        event.conversationId,
+        conversationId,
       );
 
       if (response.success && response.data != null) {
-        emit(
+        _setState(
           state.copyWith(status: ChatStatus.success, messages: response.data!),
         );
       } else {
-        emit(
+        _setState(
           state.copyWith(
             status: ChatStatus.failure,
             errorMessage: response.message,
@@ -196,39 +292,42 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         );
       }
     } on ApiException catch (e) {
-      emit(state.copyWith(status: ChatStatus.failure, errorMessage: e.message));
+      _setState(
+        state.copyWith(status: ChatStatus.failure, errorMessage: e.message),
+      );
     }
   }
 
-  Future<void> _onRefreshMessages(
-    RefreshMessages event,
-    Emitter<ChatState> emit,
-  ) async {
+  Future<void> _onRefreshMessages({required String conversationId}) async {
     try {
       final response = await _repository.getConversationMessages(
-        event.conversationId,
+        conversationId,
       );
 
       if (response.success && response.data != null) {
-        emit(state.copyWith(messages: response.data!));
+        _setState(state.copyWith(messages: response.data!));
       }
     } on ApiException catch (e) {
       AppLogger.e('Silent refresh failed: ${e.message}');
     }
   }
 
-  Future<void> _onSendMessage(
-    SendMessage event,
-    Emitter<ChatState> emit,
-  ) async {
+  Future<void> _onSendMessage({
+    required String message,
+    String? conversationId,
+    String? systemPrompt,
+    String? model,
+    double? temperature,
+    bool useStream = true,
+  }) async {
     // Optimistically add user message
     final userMessage = Message.userLocal(
-      event.message,
+      message,
       imagePath: state.attachedImagePath,
     );
     final updatedMessages = [...state.messages, userMessage];
 
-    emit(
+    _setState(
       state.copyWith(
         messages: updatedMessages,
         isSending: true,
@@ -250,7 +349,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       final hasImage = state.attachedImagePath != null;
       if (hasImage) {
         // Clear attachment immediately to reflect UI state
-        add(const DetachImage());
+        _onDetachImage();
       }
 
       // Check Mode and Model
@@ -262,14 +361,14 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       }
 
       final request = ChatRequest(
-        message: event.message,
-        systemPrompt: event.systemPrompt ?? (state.chatMode?.systemPrompt),
+        message: message,
+        systemPrompt: systemPrompt ?? (state.chatMode?.systemPrompt),
         model:
-            event.model ??
+            model ??
             (state.chatMode == ChatMode.coding
                 ? 'llama-3.1-8b-instant'
                 : null), // Example fallback
-        temperature: event.temperature,
+        temperature: temperature,
         imageBase64: base64Image,
         imageMimeType: mimeType,
         modeHint: modeHint,
@@ -279,7 +378,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       );
 
       // --- STREAMING LOGIC ---
-      if (event.useStream && modeHint != 'IMAGE_GEN') {
+      if (useStream && modeHint != 'IMAGE_GEN') {
         // Don't stream images
         // 1. Create a placeholder assistant message
         final tempAssistantId =
@@ -290,53 +389,42 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         );
 
         var currentMessages = [...updatedMessages, assistantMessage];
-        emit(state.copyWith(messages: currentMessages));
+        _setState(state.copyWith(messages: currentMessages));
 
         final stream = _repository.streamSmartMessage(request);
 
-        await emit.forEach(
-          stream,
-          onData: (String chunk) {
+        try {
+          await for (final chunk in stream) {
             // Update the last message (assistant) with new chunk
             final currentContent = assistantMessage.content + chunk;
-
             assistantMessage = assistantMessage.copyWith(
               content: currentContent,
             );
 
-            // Re-construct list with updated message
-            // Need to find by ID in case user sent another message (rare in sync, but good practice)
-            // or just replace the last one since we are in a bloc handler (sequential?)
-            // actually emit.forEach keeps the handler active.
-            // We can safely assume it's the last one for this flow
-
-            // Note for efficient updates: finding index
             final index = currentMessages.indexWhere(
               (m) => m.id == tempAssistantId,
             );
             if (index != -1) {
               currentMessages = List.from(currentMessages);
               currentMessages[index] = assistantMessage;
-              return state.copyWith(messages: currentMessages);
+              _setState(state.copyWith(messages: currentMessages));
             }
-            return state;
-          },
-          onError: (e, stackTrace) {
-            AppLogger.e('Streaming error: $e');
-            return state.copyWith(
-              errorMessage: 'Streaming failed: ${e.toString()}',
-            );
-          },
-        );
+          }
+        } catch (e) {
+          AppLogger.e('Streaming error: $e');
+          _setState(
+            state.copyWith(errorMessage: 'Streaming failed: ${e.toString()}'),
+          );
+        }
 
         // Finalize
-        emit(state.copyWith(isSending: false));
+        _setState(state.copyWith(isSending: false));
         // Note: You might want to reload conversation to get the real ID from server if needed
         // But for now, local ID works for display.
         // Ideally, we fetch the conversation again to sync IDs.
         if (state.currentConversationId != null) {
           // Passive refresh to get real message IDs
-          add(RefreshMessages(state.currentConversationId!));
+          unawaited(refreshMessages(state.currentConversationId!));
         }
       } else {
         // --- STANDARD FUTURE LOGIC ---
@@ -344,7 +432,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         if (modeHint == 'IMAGE_EDIT' && state.attachedImagePath != null) {
           // Use the dedicated edit image endpoint
           response = await _repository.editImage(
-            prompt: event.message,
+            prompt: message,
             imagePath: state.attachedImagePath!,
           );
         } else {
@@ -387,7 +475,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
             }).toList();
           }
 
-          emit(
+          _setState(
             state.copyWith(
               messages: [...updatedMessages, assistantMessage],
               currentConversationId: newConversationId,
@@ -400,21 +488,21 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           );
 
           if (wasNewConversation) {
-            add(const LoadConversations());
+            unawaited(loadConversations());
           }
         } else {
-          emit(
+          _setState(
             state.copyWith(isSending: false, errorMessage: response.message),
           );
         }
       }
     } on ApiException catch (e) {
-      emit(state.copyWith(isSending: false, errorMessage: e.message));
+      _setState(state.copyWith(isSending: false, errorMessage: e.message));
     }
   }
 
-  void _onNewConversation(NewConversation event, Emitter<ChatState> emit) {
-    emit(
+  Future<void> _onNewConversation() async {
+    _setState(
       state.copyWith(
         clearCurrentConversation: true,
         messages: [],
@@ -423,47 +511,47 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     );
   }
 
-  Future<void> _onRenameConversation(
-    RenameConversation event,
-    Emitter<ChatState> emit,
-  ) async {
+  Future<void> _onRenameConversation({
+    required String conversationId,
+    required String newTitle,
+  }) async {
     try {
       final response = await _repository.renameConversation(
-        event.conversationId,
-        event.newTitle,
+        conversationId,
+        newTitle,
       );
 
       if (response.success) {
         // Update local conversation
         final updatedConversations = state.conversations.map((c) {
-          if (c.id == event.conversationId) {
-            return c.copyWith(title: event.newTitle);
+          if (c.id == conversationId) {
+            return c.copyWith(title: newTitle);
           }
           return c;
         }).toList();
 
-        emit(state.copyWith(conversations: updatedConversations));
+        _setState(state.copyWith(conversations: updatedConversations));
       }
     } on ApiException catch (e) {
-      emit(state.copyWith(errorMessage: e.message));
+      _setState(state.copyWith(errorMessage: e.message));
     }
   }
 
-  Future<void> _onMoveToFolder(
-    MoveToFolder event,
-    Emitter<ChatState> emit,
-  ) async {
+  Future<void> _onMoveToFolder({
+    required String conversationId,
+    required String? folderId,
+  }) async {
     try {
       final response = await _repository.moveConversationToFolder(
-        event.conversationId,
-        event.folderId,
+        conversationId,
+        folderId,
       );
 
       if (response.success) {
         // Update local conversation
         final updatedConversations = state.conversations.map((c) {
-          if (c.id == event.conversationId) {
-            return c.copyWith(folderId: event.folderId);
+          if (c.id == conversationId) {
+            return c.copyWith(folderId: folderId);
           }
           return c;
         }).toList();
@@ -474,37 +562,31 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
         List<Conversation> finalConversations = updatedConversations;
         if (state.currentFolderId != null &&
-            state.currentFolderId != event.folderId) {
+            state.currentFolderId != folderId) {
           finalConversations = updatedConversations
               .where((c) => c.folderId == state.currentFolderId)
               .toList();
         }
 
-        emit(state.copyWith(conversations: finalConversations));
+        _setState(state.copyWith(conversations: finalConversations));
       }
     } on ApiException catch (e) {
-      emit(state.copyWith(errorMessage: e.message));
+      _setState(state.copyWith(errorMessage: e.message));
     }
   }
 
-  Future<void> _onDeleteConversation(
-    DeleteConversation event,
-    Emitter<ChatState> emit,
-  ) async {
+  Future<void> _onDeleteConversation({required String conversationId}) async {
     try {
-      final response = await _repository.deleteConversation(
-        event.conversationId,
-      );
+      final response = await _repository.deleteConversation(conversationId);
 
       if (response.success) {
         final updatedConversations = state.conversations
-            .where((c) => c.id != event.conversationId)
+            .where((c) => c.id != conversationId)
             .toList();
 
-        final clearCurrent =
-            state.currentConversationId == event.conversationId;
+        final clearCurrent = state.currentConversationId == conversationId;
 
-        emit(
+        _setState(
           state.copyWith(
             conversations: updatedConversations,
             clearCurrentConversation: clearCurrent,
@@ -513,7 +595,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         );
       }
     } on ApiException catch (e) {
-      emit(state.copyWith(errorMessage: e.message));
+      _setState(state.copyWith(errorMessage: e.message));
     }
   }
 
@@ -557,25 +639,22 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     }
   }
 
-  Future<void> _onLoadUsage(LoadUsage event, Emitter<ChatState> emit) async {
+  Future<void> _onLoadUsage() async {
     try {
       final response = await _repository.getUsage();
 
       if (response.success && response.data != null) {
-        emit(state.copyWith(usage: response.data!));
+        _setState(state.copyWith(usage: response.data!));
       }
     } on ApiException catch (e) {
-      emit(state.copyWith(errorMessage: e.message));
+      _setState(state.copyWith(errorMessage: e.message));
     }
   }
 
-  Future<void> _onRegenerateMessage(
-    RegenerateMessage event,
-    Emitter<ChatState> emit,
-  ) async {
-    emit(state.copyWith(isSending: true));
+  Future<void> _onRegenerateMessage({required String conversationId}) async {
+    _setState(state.copyWith(isSending: true));
     try {
-      final response = await _repository.regenerate(event.conversationId);
+      final response = await _repository.regenerate(conversationId);
       if (response.success && response.data != null) {
         final chatResponse = response.data!;
 
@@ -598,7 +677,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
         updatedMessages.add(assistantMessage);
 
-        emit(
+        _setState(
           state.copyWith(
             messages: updatedMessages,
             isSending: false,
@@ -606,19 +685,21 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           ),
         );
       } else {
-        emit(state.copyWith(isSending: false, errorMessage: response.message));
+        _setState(
+          state.copyWith(isSending: false, errorMessage: response.message),
+        );
       }
     } on ApiException catch (e) {
-      emit(state.copyWith(isSending: false, errorMessage: e.message));
+      _setState(state.copyWith(isSending: false, errorMessage: e.message));
     }
   }
 
-  Future<void> _onRateMessage(
-    RateMessage event,
-    Emitter<ChatState> emit,
-  ) async {
+  Future<void> _onRateMessage({
+    required String messageId,
+    required bool isPositive,
+  }) async {
     try {
-      await _repository.rateFeedback(event.messageId, event.isPositive);
+      await _repository.rateFeedback(messageId, isPositive);
       // Optionally show a snackbar or update message state locally to show feedback given
     } on ApiException catch (e) {
       // access context in UI to show error? or emit state error
@@ -626,33 +707,30 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     }
   }
 
-  Future<void> _onGetSummary(GetSummary event, Emitter<ChatState> emit) async {
+  Future<void> _onGetSummary({required String conversationId}) async {
     try {
-      final response = await _repository.getSummary(event.conversationId);
+      final response = await _repository.getSummary(conversationId);
       if (response.success) {
         // Show summary in a dialog or snippet in UI?
         // Using AppLogger for now or we could stick it in a state field `lastSummary`
         AppLogger.d('Summary: ${response.data}');
       }
     } on ApiException catch (e) {
-      emit(state.copyWith(errorMessage: e.message));
+      _setState(state.copyWith(errorMessage: e.message));
     }
   }
 
-  Future<void> _onPerformWebSearch(
-    PerformWebSearch event,
-    Emitter<ChatState> emit,
-  ) async {
+  Future<void> _onPerformWebSearch({required String query}) async {
     // This might be called contextually or by user command
     try {
-      final response = await _repository.webSearch(event.query);
+      final response = await _repository.webSearch(query);
       if (response.success && response.data != null) {
         // Handle search results, maybe append a system message or separate UI state
         // For now, logging
         AppLogger.d('Search Results: ${response.data?.length}');
       }
     } on ApiException catch (e) {
-      emit(state.copyWith(errorMessage: e.message));
+      _setState(state.copyWith(errorMessage: e.message));
     }
   }
 }

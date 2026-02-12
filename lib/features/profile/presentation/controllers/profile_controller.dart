@@ -1,22 +1,29 @@
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get/get.dart';
 import 'package:ai_chat_bot/features/auth/data/auth_repository.dart';
 import 'package:ai_chat_bot/core/errors/api_exception.dart';
 import 'profile_state.dart';
 
-class ProfileCubit extends Cubit<ProfileState> {
+class ProfileController extends GetxController {
   final AuthRepository _authRepository;
+  final Rx<ProfileState> rxState;
 
-  ProfileCubit(this._authRepository) : super(const ProfileState());
+  ProfileState get state => rxState.value;
+
+  void _setState(ProfileState newState) {
+    rxState.value = newState;
+  }
+
+  ProfileController(this._authRepository) : rxState = const ProfileState().obs;
 
   Future<void> loadProfile() async {
-    emit(state.copyWith(isLoading: true, clearError: true));
+    _setState(state.copyWith(isLoading: true, clearError: true));
 
     try {
       final response = await _authRepository.getUserStats();
 
       if (response.success && response.data != null) {
         final stats = response.data!;
-        emit(
+        _setState(
           state.copyWith(
             profilePictureUrl: stats.profilePictureUrl,
             firstName: stats.firstName,
@@ -28,7 +35,7 @@ class ProfileCubit extends Cubit<ProfileState> {
           ),
         );
       } else {
-        emit(
+        _setState(
           state.copyWith(
             isLoading: false,
             errorMessage: response.message ?? 'Failed to load profile',
@@ -36,19 +43,19 @@ class ProfileCubit extends Cubit<ProfileState> {
         );
       }
     } on ApiException catch (e) {
-      emit(state.copyWith(isLoading: false, errorMessage: e.message));
+      _setState(state.copyWith(isLoading: false, errorMessage: e.message));
     }
   }
 
   Future<void> fetchProfile() async {
-    emit(state.copyWith(isLoading: true, clearError: true));
+    _setState(state.copyWith(isLoading: true, clearError: true));
 
     try {
       final response = await _authRepository.getProfile();
 
       if (response.success && response.data != null) {
         final user = response.data!;
-        emit(
+        _setState(
           state.copyWith(
             profilePictureUrl: user.profilePictureUrl,
             firstName: user.firstName,
@@ -57,7 +64,7 @@ class ProfileCubit extends Cubit<ProfileState> {
           ),
         );
       } else {
-        emit(
+        _setState(
           state.copyWith(
             isLoading: false,
             errorMessage: response.message ?? 'Failed to load profile',
@@ -65,12 +72,12 @@ class ProfileCubit extends Cubit<ProfileState> {
         );
       }
     } on ApiException catch (e) {
-      emit(state.copyWith(isLoading: false, errorMessage: e.message));
+      _setState(state.copyWith(isLoading: false, errorMessage: e.message));
     }
   }
 
   Future<bool> updateProfile({String? firstName, String? lastName}) async {
-    emit(state.copyWith(isLoading: true, clearError: true));
+    _setState(state.copyWith(isLoading: true, clearError: true));
 
     try {
       final response = await _authRepository.updateProfile(
@@ -80,7 +87,7 @@ class ProfileCubit extends Cubit<ProfileState> {
 
       if (response.success && response.data != null) {
         final user = response.data!;
-        emit(
+        _setState(
           state.copyWith(
             firstName: user.firstName,
             lastName: user.lastName,
@@ -89,7 +96,7 @@ class ProfileCubit extends Cubit<ProfileState> {
         );
         return true;
       } else {
-        emit(
+        _setState(
           state.copyWith(
             isLoading: false,
             errorMessage: response.message ?? 'Failed to update profile',
@@ -98,20 +105,20 @@ class ProfileCubit extends Cubit<ProfileState> {
         return false;
       }
     } on ApiException catch (e) {
-      emit(state.copyWith(isLoading: false, errorMessage: e.message));
+      _setState(state.copyWith(isLoading: false, errorMessage: e.message));
       return false;
     }
   }
 
   Future<bool> uploadProfilePicture(String filePath) async {
-    emit(state.copyWith(isUploading: true, clearError: true));
+    _setState(state.copyWith(isUploading: true, clearError: true));
 
     try {
       final response = await _authRepository.uploadProfilePicture(filePath);
 
       if (response.success && response.data != null) {
         final user = response.data!;
-        emit(
+        _setState(
           state.copyWith(
             profilePictureUrl: user.profilePictureUrl,
             isUploading: false,
@@ -119,7 +126,7 @@ class ProfileCubit extends Cubit<ProfileState> {
         );
         return true;
       } else {
-        emit(
+        _setState(
           state.copyWith(
             isUploading: false,
             errorMessage: response.message ?? 'Failed to upload picture',
@@ -128,7 +135,7 @@ class ProfileCubit extends Cubit<ProfileState> {
         return false;
       }
     } on ApiException catch (e) {
-      emit(state.copyWith(isUploading: false, errorMessage: e.message));
+      _setState(state.copyWith(isUploading: false, errorMessage: e.message));
       return false;
     }
   }
@@ -143,7 +150,7 @@ class ProfileCubit extends Cubit<ProfileState> {
             .where((badge) => !state.unlockedAchievements.contains(badge))
             .toList();
 
-        emit(
+        _setState(
           state.copyWith(
             conversationCount: stats.conversationCount,
             messageCount: stats.messageCount,
@@ -158,10 +165,10 @@ class ProfileCubit extends Cubit<ProfileState> {
   }
 
   void clearNewlyUnlocked() {
-    emit(state.copyWith(newlyUnlocked: []));
+    _setState(state.copyWith(newlyUnlocked: []));
   }
 
   Future<void> setAvatar(String? path) async {
-    emit(state.copyWith(avatarPath: path, clearAvatar: path == null));
+    _setState(state.copyWith(avatarPath: path, clearAvatar: path == null));
   }
 }

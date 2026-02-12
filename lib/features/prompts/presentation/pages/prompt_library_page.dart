@@ -1,26 +1,27 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get/get.dart';
 import 'package:get_it/get_it.dart';
 import 'package:ai_chat_bot/features/prompts/data/prompt_repository.dart';
-import 'package:ai_chat_bot/features/prompts/presentation/bloc/prompt_cubit.dart';
-import 'package:ai_chat_bot/features/prompts/presentation/bloc/prompt_state.dart';
+import 'package:ai_chat_bot/features/prompts/presentation/controllers/prompt_controller.dart';
+import 'package:ai_chat_bot/features/prompts/presentation/controllers/prompt_state.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
-class PromptLibraryPage extends StatelessWidget {
+class PromptLibraryPage extends StatefulWidget {
   const PromptLibraryPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) =>
-          PromptCubit(GetIt.I<PromptRepository>())..loadPrompts(),
-      child: const _PromptLibraryView(),
-    );
-  }
+  State<PromptLibraryPage> createState() => _PromptLibraryPageState();
 }
 
-class _PromptLibraryView extends StatelessWidget {
-  const _PromptLibraryView();
+class _PromptLibraryPageState extends State<PromptLibraryPage> {
+  late final PromptController _promptController;
+
+  @override
+  void initState() {
+    super.initState();
+    _promptController = Get.find<PromptController>();
+    _promptController.loadPrompts();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,100 +35,100 @@ class _PromptLibraryView extends StatelessWidget {
         label: const Text('New Prompt'),
         icon: const Icon(Icons.add),
       ),
-      body: BlocBuilder<PromptCubit, PromptState>(
-        builder: (context, state) {
-          if (state is PromptLoading) {
-            return Skeletonizer(
-              enabled: true,
-              child: ListView.builder(
-                itemCount: 5,
-                itemBuilder: (context, index) => ListTile(
-                  title: const Text('Loading Prompt...'),
-                  subtitle: const Text('Description...'),
-                ),
+      body: Obx(() {
+        final PromptState state = _promptController.state;
+        if (state is PromptLoading) {
+          return Skeletonizer(
+            enabled: true,
+            child: ListView.builder(
+              itemCount: 5,
+              itemBuilder: (context, index) => ListTile(
+                title: const Text('Loading Prompt...'),
+                subtitle: const Text('Description...'),
               ),
-            );
-          } else if (state is PromptError) {
+            ),
+          );
+        } else if (state is PromptError) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error_outline, size: 48, color: colorScheme.error),
+                const SizedBox(height: 16),
+                Text(state.message),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: _promptController.loadPrompts,
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          );
+        } else if (state is PromptLoaded) {
+          if (state.prompts.isEmpty) {
             return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.error_outline, size: 48, color: colorScheme.error),
-                  const SizedBox(height: 16),
-                  Text(state.message),
-                  const SizedBox(height: 16),
-                  FilledButton(
-                    onPressed: () => context.read<PromptCubit>().loadPrompts(),
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
-            );
-          } else if (state is PromptLoaded) {
-            if (state.prompts.isEmpty) {
-              return Center(
-                child: Text(
-                  'No prompts yet. Create one!',
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+              child: Text(
+                'No prompts yet. Create one!',
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
                 ),
-              );
-            }
-
-            return ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: state.prompts.length,
-              itemBuilder: (context, index) {
-                final prompt = state.prompts[index];
-                return Card(
-                  elevation: 0,
-                  color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
-                  margin: const EdgeInsets.only(bottom: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(
-                      color: colorScheme.outlineVariant.withOpacity(0.5),
-                    ),
-                  ),
-                  child: ListTile(
-                    title: Text(
-                      prompt['title'] ?? 'Untitled',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: Text(
-                      prompt['content'] ?? '',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    onTap: () {
-                      // TODO: Select logic or edit
-                    },
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                  ),
-                );
-              },
+              ),
             );
           }
-          return const SizedBox.shrink();
-        },
-      ),
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: state.prompts.length,
+            itemBuilder: (context, index) {
+              final prompt = state.prompts[index];
+              return Card(
+                elevation: 0,
+                color: colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.3,
+                ),
+                margin: const EdgeInsets.only(bottom: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+                child: ListTile(
+                  title: Text(
+                    prompt['title'] ?? 'Untitled',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(
+                    prompt['content'] ?? '',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  onTap: () {
+                    // TODO: Select logic or edit
+                  },
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                ),
+              );
+            },
+          );
+        }
+        return const SizedBox.shrink();
+      }),
     );
   }
 
   void _showAddPromptDialog(BuildContext parentContext) {
     showDialog(
       context: parentContext,
-      builder: (context) =>
-          _AddPromptDialog(promptCubit: parentContext.read<PromptCubit>()),
+      builder: (context) => _AddPromptDialog(promptController: _promptController),
     );
   }
 }
 
 class _AddPromptDialog extends StatefulWidget {
-  final PromptCubit promptCubit;
+  final PromptController promptController;
 
-  const _AddPromptDialog({required this.promptCubit});
+  const _AddPromptDialog({required this.promptController});
 
   @override
   State<_AddPromptDialog> createState() => _AddPromptDialogState();
@@ -189,7 +190,7 @@ class _AddPromptDialogState extends State<_AddPromptDialog> {
           onPressed: () {
             if (_titleController.text.isNotEmpty &&
                 _contentController.text.isNotEmpty) {
-              widget.promptCubit.createPrompt(
+              widget.promptController.createPrompt(
                 _titleController.text,
                 _contentController.text,
               );

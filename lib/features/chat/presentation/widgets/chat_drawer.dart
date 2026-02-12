@@ -1,13 +1,11 @@
 import 'package:ai_chat_bot/features/chat/data/models/conversation.dart';
 import 'package:ai_chat_bot/features/chat/data/models/chat_mode.dart';
-import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_bloc.dart';
-import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_event.dart';
-import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_state.dart';
+import 'package:ai_chat_bot/features/chat/presentation/controllers/chat_controller.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get/get.dart';
 import 'package:go_router/go_router.dart';
-import 'package:ai_chat_bot/features/chat/presentation/bloc/folder_cubit.dart';
-import 'package:ai_chat_bot/features/chat/presentation/bloc/folder_state.dart';
+import 'package:ai_chat_bot/features/chat/presentation/controllers/folder_controller.dart';
+import 'package:ai_chat_bot/features/chat/presentation/controllers/folder_state.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
 class ChatDrawer extends StatefulWidget {
@@ -18,14 +16,20 @@ class ChatDrawer extends StatefulWidget {
 }
 
 class _ChatDrawerState extends State<ChatDrawer> {
+  late final ChatController _chatController;
+  late final FolderController _folderController;
+
   @override
   void initState() {
     super.initState();
+    _chatController = Get.find<ChatController>();
+    _folderController = Get.find<FolderController>();
+
     // Lazy load conversations when the drawer is opened
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final state = context.read<ChatBloc>().state;
+      final state = _chatController.state;
       if (state.conversations.isEmpty && !state.isLoading) {
-        context.read<ChatBloc>().add(const LoadConversations());
+        _chatController.loadConversations();
       }
     });
   }
@@ -57,7 +61,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
                         icon: const Icon(Icons.edit_square),
                         onPressed: () {
                           // New Chat
-                          context.read<ChatBloc>().add(const NewConversation());
+                          _chatController.newConversation();
                           context.pop();
                         },
                         tooltip: 'New Chat',
@@ -77,71 +81,69 @@ class _ChatDrawerState extends State<ChatDrawer> {
                       isDense: true,
                     ),
                     onChanged: (value) {
-                      context.read<ChatBloc>().add(SearchConversations(value));
+                      _chatController.searchConversations(value);
                     },
                   ),
                   const SizedBox(height: 16),
 
                   // Images Menu Item (like ChatGPT mobile app)
-                  BlocBuilder<ChatBloc, ChatState>(
-                    builder: (context, state) {
-                      final isImageMode =
-                          state.chatMode == ChatMode.imageGeneration;
-                      return InkWell(
-                        onTap: () {
-                          context.read<ChatBloc>().add(
-                            const SetChatMode(ChatMode.imageGeneration),
-                          );
-                          context.read<ChatBloc>().add(const NewConversation());
-                          context.pop();
-                        },
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isImageMode
-                                ? colorScheme.primaryContainer.withValues(
-                                    alpha: 0.4,
-                                  )
-                                : colorScheme.surfaceContainerHighest
-                                      .withValues(alpha: 0.3),
-                            borderRadius: BorderRadius.circular(12),
-                            border: isImageMode
-                                ? Border.all(color: colorScheme.primary)
-                                : null,
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: colorScheme.primary.withValues(
-                                    alpha: 0.15,
-                                  ),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Icon(
-                                  Icons.auto_awesome,
-                                  size: 20,
-                                  color: colorScheme.primary,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                'Images',
-                                style: theme.textTheme.bodyLarge?.copyWith(
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
+                  Obx(() {
+                    final state = _chatController.state;
+                    final isImageMode =
+                        state.chatMode == ChatMode.imageGeneration;
+                    return InkWell(
+                      onTap: () {
+                        _chatController.setChatMode(ChatMode.imageGeneration);
+                        _chatController.newConversation();
+                        context.pop();
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
                         ),
-                      );
-                    },
-                  ),
+                        decoration: BoxDecoration(
+                          color: isImageMode
+                              ? colorScheme.primaryContainer.withValues(
+                                  alpha: 0.4,
+                                )
+                              : colorScheme.surfaceContainerHighest.withValues(
+                                  alpha: 0.3,
+                                ),
+                          borderRadius: BorderRadius.circular(12),
+                          border: isImageMode
+                              ? Border.all(color: colorScheme.primary)
+                              : null,
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: colorScheme.primary.withValues(
+                                  alpha: 0.15,
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                Icons.auto_awesome,
+                                size: 20,
+                                color: colorScheme.primary,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              'Images',
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
                   const SizedBox(height: 12),
 
                   // Prompt Library Item
@@ -197,7 +199,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
                     width: double.infinity,
                     child: FilledButton.icon(
                       onPressed: () {
-                        context.read<ChatBloc>().add(const NewConversation());
+                        _chatController.newConversation();
                         context.pop();
                       },
                       icon: const Icon(Icons.add),
@@ -215,207 +217,195 @@ class _ChatDrawerState extends State<ChatDrawer> {
             ),
 
             // Folders List
-            BlocBuilder<FolderCubit, FolderState>(
-              builder: (context, folderState) {
-                if (folderState is FolderLoaded) {
-                  return BlocBuilder<ChatBloc, ChatState>(
-                    buildWhen: (p, c) => p.currentFolderId != c.currentFolderId,
-                    builder: (context, chatState) {
-                      return Container(
-                        height: 40,
-                        margin: const EdgeInsets.only(bottom: 8),
-                        child: ListView(
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          children: [
-                            _buildFolderChip(
-                              context,
-                              null,
-                              'All',
-                              chatState.currentFolderId == null,
-                            ),
-                            const SizedBox(width: 8),
-                            ...folderState.folders.map((f) {
-                              return Padding(
-                                padding: const EdgeInsets.only(right: 8),
-                                child: _buildFolderChip(
-                                  context,
-                                  f.id,
-                                  f.name,
-                                  chatState.currentFolderId == f.id,
-                                  color: f.color,
-                                  isFolder: true,
-                                ),
-                              );
-                            }),
-                            IconButton.filledTonal(
-                              icon: const Icon(
-                                Icons.create_new_folder_outlined,
-                                size: 18,
-                              ),
-                              onPressed: () => _showCreateFolderDialog(context),
-                              constraints: const BoxConstraints.tightFor(
-                                width: 40,
-                                height: 40,
-                              ),
-                              style: IconButton.styleFrom(
-                                padding: EdgeInsets.zero,
-                              ),
-                            ),
-                          ],
+            Obx(() {
+              final folderState = _folderController.state;
+              final chatState = _chatController.state;
+              if (folderState is FolderLoaded) {
+                return Container(
+                  height: 40,
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    children: [
+                      _buildFolderChip(
+                        context,
+                        null,
+                        'All',
+                        chatState.currentFolderId == null,
+                      ),
+                      const SizedBox(width: 8),
+                      ...folderState.folders.map((f) {
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: _buildFolderChip(
+                            context,
+                            f.id,
+                            f.name,
+                            chatState.currentFolderId == f.id,
+                            color: f.color,
+                            isFolder: true,
+                          ),
+                        );
+                      }),
+                      IconButton.filledTonal(
+                        icon: const Icon(
+                          Icons.create_new_folder_outlined,
+                          size: 18,
                         ),
-                      );
-                    },
-                  );
-                }
-                return const SizedBox.shrink();
-              },
-            ),
+                        onPressed: () => _showCreateFolderDialog(context),
+                        constraints: const BoxConstraints.tightFor(
+                          width: 40,
+                          height: 40,
+                        ),
+                        style: IconButton.styleFrom(padding: EdgeInsets.zero),
+                      ),
+                    ],
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
+            }),
 
             const Divider(height: 1),
 
             // Recent Conversations List
             Expanded(
-              child: BlocBuilder<ChatBloc, ChatState>(
-                builder: (context, state) {
-                  final conversations = state.visibleConversations;
+              child: Obx(() {
+                final state = _chatController.state;
+                final conversations = state.visibleConversations;
 
-                  if (state.isConversationsLoading &&
-                      state.conversations.isEmpty) {
-                    return Skeletonizer(
-                      enabled: true,
-                      child: ListView.builder(
-                        itemCount: 5,
-                        itemBuilder: (context, index) =>
-                            const ListTile(title: Text('Loading...')),
-                      ),
-                    );
-                  }
-
-                  if (conversations.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            state.isSearching
-                                ? Icons.search_off
-                                : Icons.chat_bubble_outline,
-                            size: 48,
-                            color: colorScheme.outline.withValues(alpha: 0.5),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            state.isSearching
-                                ? 'No matching conversations'
-                                : 'No conversations yet',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-
-                  return Container(
-                    decoration: BoxDecoration(
-                      color: theme.scaffoldBackgroundColor,
-                    ),
-                    child: NotificationListener<ScrollNotification>(
-                      onNotification: (scrollInfo) {
-                        if (!state.isConversationsLoading &&
-                            state.hasMoreConversations &&
-                            !state
-                                .isSearching && // Disable pagination when searching
-                            scrollInfo.metrics.pixels >=
-                                scrollInfo.metrics.maxScrollExtent * 0.8) {
-                          context.read<ChatBloc>().add(
-                            LoadConversations(page: state.conversationPage + 1),
-                          );
-                        }
-                        return false;
-                      },
-                      child: ListView.builder(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        itemCount:
-                            conversations.length +
-                            (state.hasMoreConversations && !state.isSearching
-                                ? 1
-                                : 0),
-                        itemBuilder: (context, index) {
-                          if (index >= conversations.length) {
-                            return Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Center(
-                                child: SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: colorScheme.primary,
-                                  ),
-                                ),
-                              ),
-                            );
-                          }
-
-                          final conversation = conversations[index];
-                          final isSelected =
-                              conversation.id == state.currentConversationId;
-
-                          return ListTile(
-                            dense: true,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 24,
-                            ),
-                            title: Text(
-                              conversation.title ?? 'New Chat',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: isSelected
-                                    ? colorScheme.primary
-                                    : colorScheme.onSurface,
-                                fontWeight: isSelected
-                                    ? FontWeight.w600
-                                    : FontWeight.normal,
-                              ),
-                            ),
-                            trailing: IconButton(
-                              icon: Icon(
-                                Icons.more_horiz,
-                                size: 20,
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                              onPressed: () =>
-                                  _showOptionsSheet(context, conversation),
-                              visualDensity: VisualDensity.compact,
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                            ),
-                            onLongPress: () =>
-                                _showOptionsSheet(context, conversation),
-                            onTap: () {
-                              // Reset search on select
-                              context.read<ChatBloc>().add(
-                                const SearchConversations(''),
-                              );
-                              if (conversation.id !=
-                                  state.currentConversationId) {
-                                context.read<ChatBloc>().add(
-                                  SelectConversation(conversation.id),
-                                );
-                              }
-                              context.pop();
-                            },
-                          );
-                        },
-                      ),
+                if (state.isConversationsLoading &&
+                    state.conversations.isEmpty) {
+                  return Skeletonizer(
+                    enabled: true,
+                    child: ListView.builder(
+                      itemCount: 5,
+                      itemBuilder: (context, index) =>
+                          const ListTile(title: Text('Loading...')),
                     ),
                   );
-                },
-              ),
+                }
+
+                if (conversations.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          state.isSearching
+                              ? Icons.search_off
+                              : Icons.chat_bubble_outline,
+                          size: 48,
+                          color: colorScheme.outline.withValues(alpha: 0.5),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          state.isSearching
+                              ? 'No matching conversations'
+                              : 'No conversations yet',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return Container(
+                  decoration: BoxDecoration(
+                    color: theme.scaffoldBackgroundColor,
+                  ),
+                  child: NotificationListener<ScrollNotification>(
+                    onNotification: (scrollInfo) {
+                      if (!state.isConversationsLoading &&
+                          state.hasMoreConversations &&
+                          !state
+                              .isSearching && // Disable pagination when searching
+                          scrollInfo.metrics.pixels >=
+                              scrollInfo.metrics.maxScrollExtent * 0.8) {
+                        _chatController.loadConversations(
+                          page: state.conversationPage + 1,
+                        );
+                      }
+                      return false;
+                    },
+                    child: ListView.builder(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      itemCount:
+                          conversations.length +
+                          (state.hasMoreConversations && !state.isSearching
+                              ? 1
+                              : 0),
+                      itemBuilder: (context, index) {
+                        if (index >= conversations.length) {
+                          return Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Center(
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: colorScheme.primary,
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+
+                        final conversation = conversations[index];
+                        final isSelected =
+                            conversation.id == state.currentConversationId;
+
+                        return ListTile(
+                          dense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                          ),
+                          title: Text(
+                            conversation.title ?? 'New Chat',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: isSelected
+                                  ? colorScheme.primary
+                                  : colorScheme.onSurface,
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                          trailing: IconButton(
+                            icon: Icon(
+                              Icons.more_horiz,
+                              size: 20,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                            onPressed: () =>
+                                _showOptionsSheet(context, conversation),
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                          onLongPress: () =>
+                              _showOptionsSheet(context, conversation),
+                          onTap: () {
+                            // Reset search on select
+                            _chatController.searchConversations('');
+                            if (conversation.id !=
+                                state.currentConversationId) {
+                              _chatController.selectConversation(conversation.id);
+                            }
+                            context.pop();
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                );
+              }),
             ),
 
             const Divider(height: 1),
@@ -503,8 +493,8 @@ class _ChatDrawerState extends State<ChatDrawer> {
           ),
           FilledButton(
             onPressed: () {
-              final chatBloc = context.read<ChatBloc>();
-              chatBloc.add(DeleteConversation(conversation.id));
+              final chatController = _chatController;
+              chatController.deleteConversation(conversation.id);
               Navigator.pop(ctx);
             },
             style: FilledButton.styleFrom(
@@ -542,10 +532,8 @@ class _ChatDrawerState extends State<ChatDrawer> {
           FilledButton(
             onPressed: () {
               if (controller.text.isNotEmpty) {
-                final chatBloc = context.read<ChatBloc>();
-                chatBloc.add(
-                  RenameConversation(conversation.id, controller.text),
-                );
+                final chatController = _chatController;
+                chatController.renameConversation(conversation.id, controller.text);
               }
               Navigator.pop(ctx);
             },
@@ -576,7 +564,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
               ? () => _showFolderOptions(context, id, label)
               : null,
           onTap: () {
-            context.read<ChatBloc>().add(SelectFolder(id));
+            _chatController.selectFolder(id);
           },
           borderRadius: BorderRadius.circular(20),
           child: AnimatedContainer(
@@ -673,8 +661,8 @@ class _ChatDrawerState extends State<ChatDrawer> {
           FilledButton(
             onPressed: () {
               if (controller.text.isNotEmpty) {
-                final folderCubit = context.read<FolderCubit>();
-                folderCubit.renameFolder(folderId, controller.text);
+                final folderController = _folderController;
+                folderController.renameFolder(folderId, controller.text);
               }
               Navigator.pop(ctx);
             },
@@ -704,10 +692,10 @@ class _ChatDrawerState extends State<ChatDrawer> {
           ),
           FilledButton(
             onPressed: () {
-              final folderCubit = context.read<FolderCubit>();
-              folderCubit.deleteFolder(folderId);
-              // Also update chat bloc to reset folder selection if needed
-              // context.read<ChatBloc>().add(const SelectFolder(null)); // Optional: reset selection
+              final folderController = _folderController;
+              folderController.deleteFolder(folderId);
+              // Also reset folder selection if needed.
+              // _chatController.selectFolder(null); // Optional
               Navigator.pop(ctx);
             },
             style: FilledButton.styleFrom(
@@ -744,8 +732,8 @@ class _ChatDrawerState extends State<ChatDrawer> {
           FilledButton(
             onPressed: () {
               if (controller.text.isNotEmpty) {
-                final folderCubit = context.read<FolderCubit>();
-                folderCubit.createFolder(
+                final folderController = _folderController;
+                folderController.createFolder(
                   controller.text,
                   'blue',
                 ); // Default color
@@ -769,41 +757,38 @@ class _ChatDrawerState extends State<ChatDrawer> {
         title: const Text('Move to Folder'),
         content: SizedBox(
           width: double.maxFinite,
-          child: BlocBuilder<FolderCubit, FolderState>(
-            builder: (context, state) {
-              if (state is FolderLoaded) {
-                return ListView(
-                  shrinkWrap: true,
-                  children: [
-                    ListTile(
-                      leading: const Icon(Icons.folder_off_outlined),
-                      title: const Text('No Folder (Uncategorized)'),
+          child: Obx(() {
+            final state = _folderController.state;
+            if (state is FolderLoaded) {
+              return ListView(
+                shrinkWrap: true,
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.folder_off_outlined),
+                    title: const Text('No Folder (Uncategorized)'),
+                    onTap: () {
+                      final chatController = _chatController;
+                      chatController.moveToFolder(conversation.id, null);
+                      Navigator.pop(ctx);
+                    },
+                  ),
+                  const Divider(),
+                  ...state.folders.map(
+                    (folder) => ListTile(
+                      leading: const Icon(Icons.folder_outlined),
+                      title: Text(folder.name),
                       onTap: () {
-                        final chatBloc = context.read<ChatBloc>();
-                        chatBloc.add(MoveToFolder(conversation.id, null));
+                        final chatController = _chatController;
+                        chatController.moveToFolder(conversation.id, folder.id);
                         Navigator.pop(ctx);
                       },
                     ),
-                    const Divider(),
-                    ...state.folders.map(
-                      (folder) => ListTile(
-                        leading: const Icon(Icons.folder_outlined),
-                        title: Text(folder.name),
-                        onTap: () {
-                          final chatBloc = context.read<ChatBloc>();
-                          chatBloc.add(
-                            MoveToFolder(conversation.id, folder.id),
-                          );
-                          Navigator.pop(ctx);
-                        },
-                      ),
-                    ),
-                  ],
-                );
-              }
-              return const Center(child: CircularProgressIndicator());
-            },
-          ),
+                  ),
+                ],
+              );
+            }
+            return const Center(child: CircularProgressIndicator());
+          }),
         ),
         actions: [
           TextButton(

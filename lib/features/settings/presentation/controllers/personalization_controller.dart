@@ -1,23 +1,30 @@
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get/get.dart';
 import 'package:ai_chat_bot/features/auth/data/auth_repository.dart';
 import 'package:ai_chat_bot/features/auth/data/models/user_preferences.dart';
 import 'package:ai_chat_bot/core/errors/api_exception.dart';
 import 'personalization_state.dart';
 
-class PersonalizationCubit extends Cubit<PersonalizationState> {
+class PersonalizationController extends GetxController {
   final AuthRepository _authRepository;
+  final Rx<PersonalizationState> rxState;
 
-  PersonalizationCubit(this._authRepository)
-    : super(const PersonalizationState());
+  PersonalizationState get state => rxState.value;
+
+  void _setState(PersonalizationState newState) {
+    rxState.value = newState;
+  }
+
+  PersonalizationController(this._authRepository)
+    : rxState = const PersonalizationState().obs;
 
   Future<void> loadPreferences() async {
-    emit(state.copyWith(isLoading: true));
+    _setState(state.copyWith(isLoading: true));
     try {
       final response = await _authRepository.getPreferences();
       if (response.success && response.data != null) {
-        emit(state.copyWith(preferences: response.data, isLoading: false));
+        _setState(state.copyWith(preferences: response.data, isLoading: false));
       } else {
-        emit(
+        _setState(
           state.copyWith(
             isLoading: false,
             errorMessage: response.message ?? 'Failed to load preferences',
@@ -25,16 +32,16 @@ class PersonalizationCubit extends Cubit<PersonalizationState> {
         );
       }
     } on ApiException catch (e) {
-      emit(state.copyWith(isLoading: false, errorMessage: e.message));
+      _setState(state.copyWith(isLoading: false, errorMessage: e.message));
     }
   }
 
   Future<void> updatePreferences(UserPreferences newPrefs) async {
-    emit(state.copyWith(isLoading: true, isSuccess: false));
+    _setState(state.copyWith(isLoading: true, isSuccess: false));
     try {
       final response = await _authRepository.updatePreferences(newPrefs);
       if (response.success && response.data != null) {
-        emit(
+        _setState(
           state.copyWith(
             preferences: response.data,
             isLoading: false,
@@ -42,7 +49,7 @@ class PersonalizationCubit extends Cubit<PersonalizationState> {
           ),
         );
       } else {
-        emit(
+        _setState(
           state.copyWith(
             isLoading: false,
             errorMessage: response.message ?? 'Failed to update preferences',
@@ -50,11 +57,11 @@ class PersonalizationCubit extends Cubit<PersonalizationState> {
         );
       }
     } on ApiException catch (e) {
-      emit(state.copyWith(isLoading: false, errorMessage: e.message));
+      _setState(state.copyWith(isLoading: false, errorMessage: e.message));
     }
   }
 
   void resetSuccess() {
-    emit(state.copyWith(isSuccess: false));
+    _setState(state.copyWith(isSuccess: false));
   }
 }

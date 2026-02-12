@@ -1,101 +1,87 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_bloc.dart';
-import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_event.dart';
-import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_state.dart';
+import 'package:get/get.dart';
+import 'package:ai_chat_bot/features/chat/presentation/controllers/usage_controller.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
-class UsagePage extends StatefulWidget {
+class UsagePage extends GetView<UsageController> {
   const UsagePage({super.key});
-
-  @override
-  State<UsagePage> createState() => _UsagePageState();
-}
-
-class _UsagePageState extends State<UsagePage> {
-  @override
-  void initState() {
-    super.initState();
-    context.read<ChatBloc>().add(const LoadUsage());
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Usage Statistics')),
-      body: BlocBuilder<ChatBloc, ChatState>(
-        builder: (context, state) {
-          final usage = state.usage;
+      body: Obx(() {
+        final state = controller.state;
+        final usage = state.usage;
 
-          if (usage == null) {
-            return Skeletonizer(
-              enabled: true,
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: const [
-                  _UsageCard(
-                    title: 'Today',
-                    tokens: 1560,
-                    requests: 42,
-                    icon: Icons.today,
-                    color: Colors.blue,
-                  ),
-                  SizedBox(height: 16),
-                  _UsageCard(
-                    title: 'This Week',
-                    tokens: 12500,
-                    requests: 350,
-                    icon: Icons.date_range,
-                    color: Colors.green,
-                  ),
-                  SizedBox(height: 16),
-                  _UsageCard(
-                    title: 'This Month',
-                    tokens: 45000,
-                    requests: 1200,
-                    icon: Icons.calendar_month,
-                    color: Colors.orange,
-                  ),
-                ],
-              ),
-            );
-          }
-
-          return RefreshIndicator(
-            onRefresh: () async {
-              context.read<ChatBloc>().add(const LoadUsage());
-            },
+        if (usage == null) {
+          return Skeletonizer(
+            enabled: true,
             child: ListView(
               padding: const EdgeInsets.all(16),
-              children: [
+              children: const [
                 _UsageCard(
                   title: 'Today',
-                  tokens: usage.todayTokens,
-                  requests: usage.todayRequests,
+                  tokens: 1560,
+                  requests: 42,
                   icon: Icons.today,
                   color: Colors.blue,
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 _UsageCard(
                   title: 'This Week',
-                  tokens: usage.weeklyTokens,
-                  requests: usage.weeklyRequests,
+                  tokens: 12500,
+                  requests: 350,
                   icon: Icons.date_range,
                   color: Colors.green,
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 _UsageCard(
                   title: 'This Month',
-                  tokens: usage.monthlyTokens,
-                  requests: usage.monthlyRequests,
+                  tokens: 45000,
+                  requests: 1200,
                   icon: Icons.calendar_month,
                   color: Colors.orange,
                 ),
               ],
             ),
           );
-        },
-      ),
+        }
+
+        return RefreshIndicator(
+          onRefresh: () async {
+            controller.reloadUsage();
+          },
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              _UsageCard(
+                title: 'Today',
+                tokens: usage.todayTokens,
+                requests: usage.todayRequests,
+                icon: Icons.today,
+                color: Colors.blue,
+              ),
+              const SizedBox(height: 16),
+              _UsageCard(
+                title: 'This Week',
+                tokens: usage.weeklyTokens,
+                requests: usage.weeklyRequests,
+                icon: Icons.date_range,
+                color: Colors.green,
+              ),
+              const SizedBox(height: 16),
+              _UsageCard(
+                title: 'This Month',
+                tokens: usage.monthlyTokens,
+                requests: usage.monthlyRequests,
+                icon: Icons.calendar_month,
+                color: Colors.orange,
+              ),
+            ],
+          ),
+        );
+      }),
     );
   }
 }

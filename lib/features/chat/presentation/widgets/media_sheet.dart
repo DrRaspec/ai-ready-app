@@ -1,10 +1,8 @@
 import 'dart:io';
 import 'package:ai_chat_bot/features/chat/data/models/chat_mode.dart';
-import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_bloc.dart';
-import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_event.dart';
-import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_state.dart';
+import 'package:ai_chat_bot/features/chat/presentation/controllers/chat_controller.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get/get.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'photo_picker_sheet.dart';
@@ -128,10 +126,9 @@ class _MediaSheetState extends State<MediaSheet> {
                       builder: (context, scrollController) => PhotoPickerSheet(
                         onSelected: (files) {
                           // Handle selection
+                          final chatController = Get.find<ChatController>();
                           for (final file in files) {
-                            context.read<ChatBloc>().add(
-                              AttachImage(file.path),
-                            );
+                            chatController.attachImage(file.path);
                           }
                           Navigator.pop(context); // Close picker
                           Navigator.pop(context); // Close media sheet
@@ -275,7 +272,7 @@ class _MediaSheetState extends State<MediaSheet> {
                     borderRadius: BorderRadius.circular(12),
                     onTap: () async {
                       if (file != null) {
-                        context.read<ChatBloc>().add(AttachImage(file.path));
+                        Get.find<ChatController>().attachImage(file.path);
                         Navigator.pop(context);
                       }
                     },
@@ -290,75 +287,74 @@ class _MediaSheetState extends State<MediaSheet> {
   }
 
   Widget _buildModeItem(BuildContext context, ChatMode mode) {
-    return BlocBuilder<ChatBloc, ChatState>(
-      builder: (context, state) {
-        final isSelected =
-            state.chatMode == mode ||
-            (state.chatMode == null && mode == ChatMode.general);
-        final theme = Theme.of(context);
+    return Obx(() {
+      final state = Get.find<ChatController>().state;
+      final isSelected =
+          state.chatMode == mode ||
+          (state.chatMode == null && mode == ChatMode.general);
+      final theme = Theme.of(context);
 
-        return InkWell(
-          onTap: () {
-            context.read<ChatBloc>().add(SetChatMode(mode));
-            Navigator.pop(context);
-          },
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            margin: const EdgeInsets.only(bottom: 8),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? theme.colorScheme.primaryContainer.withValues(alpha: 0.4)
-                  : null,
-              borderRadius: BorderRadius.circular(12),
-              border: isSelected
-                  ? Border.all(color: theme.colorScheme.primary)
-                  : null,
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  _getIconData(mode.iconName),
-                  color: isSelected
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        mode.label,
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          fontWeight: isSelected
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                        ),
-                      ),
-                      Text(
-                        mode.systemPrompt,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (isSelected)
-                  Icon(
-                    Icons.check_circle_rounded,
-                    color: theme.colorScheme.primary,
-                    size: 20,
-                  ),
-              ],
-            ),
+      return InkWell(
+        onTap: () {
+          Get.find<ChatController>().setChatMode(mode);
+          Navigator.pop(context);
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          margin: const EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? theme.colorScheme.primaryContainer.withValues(alpha: 0.4)
+                : null,
+            borderRadius: BorderRadius.circular(12),
+            border: isSelected
+                ? Border.all(color: theme.colorScheme.primary)
+                : null,
           ),
-        );
-      },
-    );
+          child: Row(
+            children: [
+              Icon(
+                _getIconData(mode.iconName),
+                color: isSelected
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      mode.label,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                      ),
+                    ),
+                    Text(
+                      mode.systemPrompt,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (isSelected)
+                Icon(
+                  Icons.check_circle_rounded,
+                  color: theme.colorScheme.primary,
+                  size: 20,
+                ),
+            ],
+          ),
+        ),
+      );
+    });
   }
 
   IconData _getIconData(String name) {
