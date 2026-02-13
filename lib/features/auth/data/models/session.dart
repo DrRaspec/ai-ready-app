@@ -14,14 +14,46 @@ class Session {
   });
 
   factory Session.fromJson(Map<String, dynamic> json) {
+    final rawSessionId = json['sessionId'] ?? json['id'];
+    final sessionId = rawSessionId?.toString() ?? '';
+
+    final directDeviceInfo = (json['deviceInfo'] as String?)?.trim();
+    final deviceName = (json['deviceName'] as String?)?.trim();
+    final deviceType = (json['deviceType'] as String?)?.trim();
+    final deviceId = (json['deviceId'] as String?)?.trim();
+    final deviceInfo = (directDeviceInfo != null && directDeviceInfo.isNotEmpty)
+        ? directDeviceInfo
+        : (deviceName != null && deviceName.isNotEmpty)
+        ? deviceName
+        : (deviceType != null && deviceType.isNotEmpty)
+        ? deviceType
+        : (deviceId != null && deviceId.isNotEmpty)
+        ? deviceId
+        : 'Unknown Device';
+
+    final rawIpAddress = (json['ipAddress'] as String?)?.trim();
+    final ipAddress = (rawIpAddress != null && rawIpAddress.isNotEmpty)
+        ? rawIpAddress
+        : 'Unknown IP';
+
+    final rawLastActive = json['lastActive'] ?? json['lastUsedAt'];
+    final DateTime? lastActive = rawLastActive == null
+        ? null
+        : DateTime.tryParse(rawLastActive.toString());
+
+    final rawIsCurrent = json['isCurrentSession'] ?? json['current'];
+    final bool isCurrentSession = rawIsCurrent is bool
+        ? rawIsCurrent
+        : rawIsCurrent is num
+        ? rawIsCurrent != 0
+        : rawIsCurrent?.toString().toLowerCase() == 'true';
+
     return Session(
-      sessionId: json['sessionId'].toString(),
-      deviceInfo: json['deviceInfo'] as String? ?? 'Unknown Device',
-      ipAddress: json['ipAddress'] as String? ?? 'Unknown IP',
-      lastActive: json['lastActive'] != null
-          ? DateTime.tryParse(json['lastActive'] as String)
-          : null,
-      isCurrentSession: json['isCurrentSession'] as bool? ?? false,
+      sessionId: sessionId,
+      deviceInfo: deviceInfo,
+      ipAddress: ipAddress,
+      lastActive: lastActive,
+      isCurrentSession: isCurrentSession,
     );
   }
 

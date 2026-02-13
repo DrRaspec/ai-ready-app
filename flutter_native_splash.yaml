@@ -1,17 +1,21 @@
+# Run from project root to generate splash assets:
+# dart run flutter_native_splash:create --path=flutter_native_splash.yaml
+# (remove generated splash with: dart run flutter_native_splash:remove)
+
 flutter_native_splash:
   # Colors - Dark gradient theme to match AI chat energy
   color: "#0A0A0F"
   color_dark: "#0A0A0F"
 
   # App icon as splash image
-  image: assets/icons/app_icon.png
+  image: assets/icons/app_icon_minimal.png
   image_dark: assets/icons/app_icon_dark.png
 
   # Android 12+ specific settings
   android_12:
     color: "#0A0A0F"
     color_dark: "#0A0A0F"
-    image: assets/icons/app_icon.png
+    image: assets/icons/app_icon_minimal.png
     image_dark: assets/icons/app_icon_dark.png
     icon_background_color: "#0A0A0F"
     icon_background_color_dark: "#0A0A0F"

@@ -220,8 +220,14 @@ class AuthRepository {
   }
 
   Future<void> terminateSession(String sessionId) async {
+    final normalizedSessionId = sessionId.trim();
+    if (normalizedSessionId.isEmpty ||
+        normalizedSessionId.toLowerCase() == 'null') {
+      throw ApiException(message: 'Invalid session id');
+    }
+
     try {
-      await _dioClient.dio.delete(ApiPaths.session(sessionId));
+      await _dioClient.dio.delete(ApiPaths.session(normalizedSessionId));
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }

@@ -1,3 +1,4 @@
+import 'package:ai_chat_bot/core/di/dependency_injection.dart';
 import 'package:ai_chat_bot/features/auth/data/auth_repository.dart';
 import 'package:ai_chat_bot/features/auth/presentation/bloc/sessions_cubit.dart';
 import 'package:ai_chat_bot/features/auth/data/models/session.dart';
@@ -12,8 +13,7 @@ class SessionsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) =>
-          SessionsCubit(context.read<AuthRepository>())..loadSessions(),
+      create: (_) => SessionsCubit(di<AuthRepository>())..loadSessions(),
       child: const _SessionsView(),
     );
   }
@@ -36,24 +36,23 @@ class _SessionsView extends StatelessWidget {
             icon: Icon(Icons.logout, color: colorScheme.error),
             tooltip: 'Terminate All Others',
             onPressed: () {
+              final sessionsCubit = context.read<SessionsCubit>();
               showDialog(
                 context: context,
-                builder: (context) => AlertDialog(
+                builder: (dialogContext) => AlertDialog(
                   title: const Text('Terminate All Other Sessions?'),
                   content: const Text(
                     'Are you sure you want to log out from all other devices?',
                   ),
                   actions: [
                     TextButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () => Navigator.pop(dialogContext),
                       child: const Text('Cancel'),
                     ),
                     TextButton(
                       onPressed: () {
-                        Navigator.pop(context);
-                        context
-                            .read<SessionsCubit>()
-                            .terminateAllOtherSessions();
+                        Navigator.pop(dialogContext);
+                        sessionsCubit.terminateAllOtherSessions();
                       },
                       style: TextButton.styleFrom(
                         foregroundColor: colorScheme.error,
@@ -119,6 +118,7 @@ class _SessionTile extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isCurrent = session.isCurrentSession;
+    final canTerminate = !isCurrent && session.sessionId.trim().isNotEmpty;
 
     final dateFormat = DateFormat.yMMMd().add_jm();
     final lastActiveStr = session.lastActive != null
@@ -197,29 +197,28 @@ class _SessionTile extends StatelessWidget {
           ],
         ),
       ),
-      trailing: !isCurrent
+      trailing: canTerminate
           ? IconButton(
               icon: Icon(Icons.exit_to_app, color: colorScheme.error),
               tooltip: 'Terminate Session',
               onPressed: () {
+                final sessionsCubit = context.read<SessionsCubit>();
                 showDialog(
                   context: context,
-                  builder: (context) => AlertDialog(
+                  builder: (dialogContext) => AlertDialog(
                     title: const Text('Terminate Session?'),
                     content: Text(
                       'Are you sure you want to log out from "${session.deviceInfo}"?',
                     ),
                     actions: [
                       TextButton(
-                        onPressed: () => Navigator.pop(context),
+                        onPressed: () => Navigator.pop(dialogContext),
                         child: const Text('Cancel'),
                       ),
                       TextButton(
                         onPressed: () {
-                          Navigator.pop(context);
-                          context.read<SessionsCubit>().terminateSession(
-                            session.sessionId,
-                          );
+                          Navigator.pop(dialogContext);
+                          sessionsCubit.terminateSession(session.sessionId);
                         },
                         style: TextButton.styleFrom(
                           foregroundColor: colorScheme.error,
