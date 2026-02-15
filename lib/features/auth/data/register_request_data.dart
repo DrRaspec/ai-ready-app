@@ -6,6 +6,8 @@ class RegisterRequestData {
   String? email;
   String? password;
   String? deviceId;
+  String? deviceName;
+  String? deviceType;
 
   RegisterRequestData({
     this.firstName,
@@ -13,11 +15,13 @@ class RegisterRequestData {
     this.email,
     this.password,
     this.deviceId,
+    this.deviceName,
+    this.deviceType,
   });
 
   @override
   String toString() {
-    return 'RegisterRequestData(firstName: $firstName, lastName: $lastName, email: $email, password: $password, deviceId: $deviceId)';
+    return 'RegisterRequestData(firstName: $firstName, lastName: $lastName, email: $email, password: $password, deviceId: $deviceId, deviceName: $deviceName, deviceType: $deviceType)';
   }
 
   factory RegisterRequestData.fromMap(Map<String, dynamic> data) {
@@ -27,6 +31,8 @@ class RegisterRequestData {
       email: data['email'] as String?,
       password: data['password'] as String?,
       deviceId: data['deviceId'] as String?,
+      deviceName: data['deviceName'] as String?,
+      deviceType: data['deviceType'] as String?,
     );
   }
 
@@ -36,6 +42,8 @@ class RegisterRequestData {
     'email': email,
     'password': password,
     'deviceId': deviceId,
+    if (deviceName != null) 'deviceName': deviceName,
+    if (deviceType != null) 'deviceType': deviceType,
   };
 
   /// `dart:convert`
@@ -58,6 +66,8 @@ class RegisterRequestData {
     String? email,
     String? password,
     String? deviceId,
+    String? deviceName,
+    String? deviceType,
   }) {
     return RegisterRequestData(
       firstName: firstName ?? this.firstName,
@@ -65,6 +75,8 @@ class RegisterRequestData {
       email: email ?? this.email,
       password: password ?? this.password,
       deviceId: deviceId ?? this.deviceId,
+      deviceName: deviceName ?? this.deviceName,
+      deviceType: deviceType ?? this.deviceType,
     );
   }
 }

@@ -2,6 +2,7 @@ class ApiResponse<T> {
   final bool success;
   final String? message;
   final T? data;
+  final DateTime? timestamp;
   final int status;
   final String? path;
   final String? error;
@@ -10,6 +11,7 @@ class ApiResponse<T> {
   ApiResponse({
     required this.success,
     required this.message,
+    this.timestamp,
     required this.status,
     this.path,
     this.data,
@@ -24,6 +26,7 @@ class ApiResponse<T> {
     return ApiResponse<T>(
       success: json['success'] ?? false,
       message: json['message'] ?? '',
+      timestamp: _parseTimestamp(json['timestamp']),
       status: json['status'] ?? 500,
       path: json['path'],
       error: json['error'],
@@ -44,5 +47,18 @@ class ApiResponse<T> {
       }
     }
     return message ?? 'Something went wrong';
+  }
+
+  static DateTime? _parseTimestamp(dynamic raw) {
+    if (raw == null) return null;
+    if (raw is String) return DateTime.tryParse(raw);
+    if (raw is int) {
+      try {
+        return DateTime.fromMillisecondsSinceEpoch(raw);
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
   }
 }

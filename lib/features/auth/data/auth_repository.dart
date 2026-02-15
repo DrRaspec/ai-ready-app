@@ -1,8 +1,9 @@
 import 'package:ai_chat_bot/core/errors/api_exception.dart';
 import 'package:ai_chat_bot/core/device/device_id_provider.dart';
-import 'package:ai_chat_bot/core/logging/app_logger.dart';
+import 'package:shadow_log/shadow_log.dart';
 import 'package:ai_chat_bot/core/network/api_paths.dart';
 import 'package:ai_chat_bot/core/network/dio_client.dart';
+import 'package:ai_chat_bot/core/network/models/api_response.dart';
 import 'package:ai_chat_bot/core/storage/token_storage.dart';
 import 'package:ai_chat_bot/features/auth/data/auth_data.dart';
 import 'package:ai_chat_bot/features/auth/data/login_request_data.dart';
@@ -11,7 +12,6 @@ import 'package:ai_chat_bot/features/auth/data/models/user_preferences.dart';
 import 'package:ai_chat_bot/features/auth/data/models/user_stats_data.dart';
 import 'package:ai_chat_bot/features/auth/data/register_request_data.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 
 class AuthRepository {
   final DioClient _dioClient;
@@ -28,31 +28,28 @@ class AuthRepository {
 
   Future<ApiResponse<AuthData>> login(LoginRequestData request) async {
     try {
-      AppLogger.i(
-        'Login request -> ${_dioClient.dio.options.baseUrl}${ApiPaths.login}',
-      );
-      debugPrint(
+      ShadowLog.i(
         'Login request -> ${_dioClient.dio.options.baseUrl}${ApiPaths.login}',
       );
       final deviceId =
           request.deviceId ?? await _deviceIdProvider.getDeviceId();
+      final deviceName =
+          request.deviceName ?? await _deviceIdProvider.getDeviceName();
+      final deviceType =
+          request.deviceType ?? await _deviceIdProvider.getDeviceType();
       final payload = request.copyWith(deviceId: deviceId);
+      final enrichedPayload = payload.copyWith(
+        deviceName: deviceName,
+        deviceType: deviceType,
+      );
       final response = await _dioClient.dio.post(
         ApiPaths.login,
-        data: payload.toJson(),
+        data: enrichedPayload.toJson(),
       );
 
-      return ApiResponse<AuthData>.fromJson(
-        response.data,
-        (json) => AuthData.fromJson(json as Map<String, dynamic>),
-      );
+      return _parseAuthResponse(response.data);
     } on DioException catch (e) {
-      debugPrint(
-        'Login DioException: type=${e.type} message=${e.message} '
-        'errorType=${e.error.runtimeType} error=${e.error} '
-        'status=${e.response?.statusCode} data=${e.response?.data}',
-      );
-      AppLogger.e(
+      ShadowLog.e(
         'Login DioException: type=${e.type} message=${e.message} '
         'errorType=${e.error.runtimeType} error=${e.error} '
         'status=${e.response?.statusCode}',
@@ -67,16 +64,46 @@ class AuthRepository {
     try {
       final deviceId =
           request.deviceId ?? await _deviceIdProvider.getDeviceId();
-      final payload = request.copyWith(deviceId: deviceId);
+      final deviceName =
+          request.deviceName ?? await _deviceIdProvider.getDeviceName();
+      final deviceType =
+          request.deviceType ?? await _deviceIdProvider.getDeviceType();
+      final payload = request.copyWith(
+        deviceId: deviceId,
+        deviceName: deviceName,
+        deviceType: deviceType,
+      );
       final response = await _dioClient.dio.post(
         ApiPaths.register,
         data: payload.toMap(),
       );
 
-      return ApiResponse<AuthData>.fromJson(
-        response.data,
-        (json) => AuthData.fromJson(json as Map<String, dynamic>),
+      return _parseAuthResponse(response.data);
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<ApiResponse<AuthData>> loginWithGoogle({
+    required String idToken,
+  }) async {
+    try {
+      final deviceId = await _deviceIdProvider.getDeviceId();
+      final deviceName = await _deviceIdProvider.getDeviceName();
+      final deviceType = await _deviceIdProvider.getDeviceType();
+
+      final response = await _dioClient.dio.post(
+        ApiPaths.googleLogin,
+        data: {
+          'idToken': idToken,
+          'deviceId': deviceId,
+          if (deviceName != null && deviceName.isNotEmpty)
+            'deviceName': deviceName,
+          if (deviceType.isNotEmpty) 'deviceType': deviceType,
+        },
       );
+
+      return _parseAuthResponse(response.data);
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }
@@ -86,10 +113,7 @@ class AuthRepository {
     try {
       final response = await _dioClient.dio.post(ApiPaths.me);
 
-      return ApiResponse<AuthData>.fromJson(
-        response.data,
-        (json) => AuthData.fromJson(json as Map<String, dynamic>),
-      );
+      return _parseAuthResponse(response.data);
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }
@@ -104,6 +128,43 @@ class AuthRepository {
         ApiPaths.logout,
         data: {'refreshToken': refreshToken, 'deviceId': deviceId},
       );
+      await _tokenStorage.clear();
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<ApiResponse<AuthData>> refresh({
+    String? refreshToken,
+    String? deviceId,
+  }) async {
+    try {
+      final token = refreshToken ?? await _tokenStorage.readRefreshToken();
+      final resolvedDeviceId =
+          deviceId ?? await _deviceIdProvider.getDeviceId();
+      final response = await _dioClient.dio.post(
+        ApiPaths.refreshToken,
+        data: {'refreshToken': token, 'deviceId': resolvedDeviceId},
+      );
+
+      final parsed = _parseAuthResponse(response.data);
+
+      if (parsed.success && parsed.data != null) {
+        await _tokenStorage.writeTokens(
+          accessToken: parsed.data!.accessToken,
+          refreshToken: parsed.data!.refreshToken,
+        );
+      }
+
+      return parsed;
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<void> logoutAll() async {
+    try {
+      await _dioClient.dio.post(ApiPaths.logoutAll);
       await _tokenStorage.clear();
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
@@ -164,6 +225,37 @@ class AuthRepository {
     }
   }
 
+  ApiResponse<AuthData> _parseAuthResponse(dynamic responseData) {
+    if (responseData is! Map<String, dynamic>) {
+      return ApiResponse<AuthData>(
+        success: false,
+        message: 'Invalid response format',
+        status: 500,
+      );
+    }
+
+    final normalized = Map<String, dynamic>.from(responseData);
+    normalized['data'] = _extractAuthPayload(normalized['data']);
+
+    return ApiResponse<AuthData>.fromJson(
+      normalized,
+      (json) => AuthData.fromJson(json as Map<String, dynamic>),
+    );
+  }
+
+  dynamic _extractAuthPayload(dynamic data) {
+    if (data is! Map<String, dynamic>) {
+      return data;
+    }
+
+    final nested = data['data'];
+    if (nested is Map<String, dynamic>) {
+      return nested;
+    }
+
+    return data;
+  }
+
   Future<ApiResponse<UserStatsData>> getUserStats() async {
     try {
       final response = await _dioClient.dio.get(ApiPaths.userStats);
@@ -207,7 +299,12 @@ class AuthRepository {
 
   Future<ApiResponse<List<Session>>> getSessions() async {
     try {
-      final response = await _dioClient.dio.get(ApiPaths.sessions);
+      final response = await _dioClient.dio.get(
+        ApiPaths.sessions,
+        options: Options(
+          headers: {'X-Device-Id': await _deviceIdProvider.getDeviceId()},
+        ),
+      );
       return ApiResponse<List<Session>>.fromJson(
         response.data,
         (json) => (json as List)
@@ -227,7 +324,12 @@ class AuthRepository {
     }
 
     try {
-      await _dioClient.dio.delete(ApiPaths.session(normalizedSessionId));
+      await _dioClient.dio.delete(
+        ApiPaths.session(normalizedSessionId),
+        options: Options(
+          headers: {'X-Device-Id': await _deviceIdProvider.getDeviceId()},
+        ),
+      );
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }
@@ -235,28 +337,14 @@ class AuthRepository {
 
   Future<void> terminateAllOtherSessions() async {
     try {
-      await _dioClient.dio.delete(ApiPaths.sessionsAllOthers);
+      await _dioClient.dio.delete(
+        ApiPaths.sessionsAllOthers,
+        options: Options(
+          headers: {'X-Device-Id': await _deviceIdProvider.getDeviceId()},
+        ),
+      );
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }
-  }
-}
-
-class ApiResponse<T> {
-  final bool success;
-  final T? data;
-  final String? message;
-
-  ApiResponse({required this.success, this.data, this.message});
-
-  factory ApiResponse.fromJson(
-    Map<String, dynamic> json,
-    T Function(Object? json) fromJsonT,
-  ) {
-    return ApiResponse<T>(
-      success: json['success'] as bool? ?? false,
-      data: json['data'] != null ? fromJsonT(json['data']) : null,
-      message: json['message'] as String?,
-    );
   }
 }

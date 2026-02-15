@@ -26,9 +26,7 @@ class UserPreferences {
       systemInstructions:
           (json['systemInstructions'] ?? json['customInstructions']) as String?,
       model: json['model'] as String?,
-      streamResponse:
-          (json['streamResponse'] ?? json['enableMemory'])
-              as bool?, // Fallback or mapping?
+      streamResponse: json['streamResponse'] as bool?,
       themeMode: json['themeMode'] as String?,
       hapticFeedback: json['hapticFeedback'] as bool?,
       preferredName: json['preferredName'] as String?,
@@ -40,12 +38,7 @@ class UserPreferences {
 
   Map<String, dynamic> toJson() {
     return {
-      if (systemInstructions != null) 'systemInstructions': systemInstructions,
-      'customInstructions': systemInstructions, // Send both for compatibility
-      if (model != null) 'model': model,
-      if (streamResponse != null) 'streamResponse': streamResponse,
-      if (themeMode != null) 'themeMode': themeMode,
-      if (hapticFeedback != null) 'hapticFeedback': hapticFeedback,
+      if (systemInstructions != null) 'customInstructions': systemInstructions,
       if (preferredName != null) 'preferredName': preferredName,
       if (preferredTone != null) 'preferredTone': preferredTone,
       if (preferredLanguage != null) 'preferredLanguage': preferredLanguage,

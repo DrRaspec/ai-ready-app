@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:ai_chat_bot/core/config/env_config.dart';
 import 'package:ai_chat_bot/core/device/device_id_provider.dart';
 import 'package:ai_chat_bot/core/errors/api_exception.dart';
-import 'package:ai_chat_bot/core/logging/app_logger.dart';
+import 'package:shadow_log/shadow_log.dart';
 import 'package:ai_chat_bot/core/network/api_paths.dart';
 import 'package:ai_chat_bot/core/storage/token_storage.dart';
 import 'package:dio/dio.dart';
@@ -11,6 +11,14 @@ import 'package:flutter/foundation.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 
 class DioClient {
+  static const _retryAttemptKey = '_retry_attempted';
+  static const Set<String> _publicPaths = {
+    ApiPaths.login,
+    ApiPaths.register,
+    ApiPaths.googleLogin,
+    ApiPaths.refreshToken,
+  };
+
   late final Dio dio;
   final TokenStorage _tokenStorage;
   final DeviceIdProvider _deviceIdProvider;
@@ -47,7 +55,7 @@ class DioClient {
         PrettyDioLogger(
           requestHeader: false,
           requestBody: false,
-          responseBody: true,
+          responseBody: false,
           responseHeader: false,
           error: true,
           compact: true,
@@ -61,12 +69,12 @@ class DioClient {
         onError: (error, handler) {
           if (kDebugMode) {
             final err = error.error;
-            debugPrint(
+            ShadowLog.d(
               'Dio error: type=${error.type} message=${error.message} '
               'url=${error.requestOptions.uri} errorType=${err.runtimeType} '
               'error=${err?.toString()}',
             );
-            AppLogger.e(
+            ShadowLog.e(
               'Dio error: type=${error.type} message=${error.message} '
               'url=${error.requestOptions.uri} error=${err?.toString()}',
               error: err,
@@ -82,40 +90,45 @@ class DioClient {
     dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
+          if (_isPublicEndpoint(options.path)) {
+            options.headers.remove('Authorization');
+            handler.next(options);
+            return;
+          }
+
           final token = await _tokenStorage.readAccessToken();
-          if (token != null && token.isNotEmpty) {
-            options.headers['Authorization'] = 'Bearer $token';
+          if (token != null && token.isNotEmpty && token.trim().isNotEmpty) {
+            options.headers['Authorization'] = 'Bearer ${token.trim()}';
           }
           handler.next(options);
         },
         onError: (error, handler) async {
           final status = error.response?.statusCode;
-          final path = error.requestOptions.path;
+          final requestOptions = error.requestOptions;
+          final isPublicEndpoint = _isPublicEndpoint(requestOptions.path);
+          final hasRetried = requestOptions.extra[_retryAttemptKey] == true;
 
-          final isAuthEndpoint =
-              path.contains(ApiPaths.login) ||
-              path.contains(ApiPaths.refreshToken);
-
-          if (status == 401 && !isAuthEndpoint) {
+          if (status == 401 && !isPublicEndpoint && !hasRetried) {
             final ok = await _tryRefreshToken();
             if (ok) {
               final newToken = await _tokenStorage.readAccessToken();
-              final requestOptions = error.requestOptions;
-              if (newToken != null && newToken.isNotEmpty) {
-                requestOptions.headers['Authorization'] = 'Bearer $newToken';
+              if (newToken != null && newToken.trim().isNotEmpty) {
+                requestOptions.headers['Authorization'] =
+                    'Bearer ${newToken.trim()}';
               }
+              requestOptions.extra[_retryAttemptKey] = true;
 
               try {
                 final response = await dio.fetch(requestOptions);
                 handler.resolve(response);
                 return;
-              } catch (e) {
+              } catch (_) {
                 handler.next(error);
                 return;
               }
             }
 
-            // Navigate to login
+            await _tokenStorage.clear();
             onUnauthorized?.call();
           }
 
@@ -132,7 +145,9 @@ class DioClient {
           final res = error.response;
           // If we have a response body with the ApiResponse structure,
           // treat it as a successful response (not an exception)
-          if (res?.data is Map && res!.data['success'] != null) {
+          if (res?.statusCode != 401 &&
+              res?.data is Map &&
+              res!.data['success'] != null) {
             // Convert the error to a response so it can be parsed as ApiResponse
             handler.resolve(res);
             return;
@@ -170,25 +185,17 @@ class DioClient {
         },
       );
 
-      final data = response.data;
-      if (data is Map<String, dynamic>) {
-        // Handle nested data object (common in our API response wrapper)
-        final tokenData = data['data'] is Map<String, dynamic>
-            ? data['data']
-            : data;
-
-        final access = (tokenData['accessToken'] ?? tokenData['access_token'])
-            ?.toString();
-        final refresh =
-            (tokenData['refreshToken'] ?? tokenData['refresh_token'])
-                ?.toString();
-        if (access != null && access.isNotEmpty) {
-          await _tokenStorage.writeTokens(
-            accessToken: access,
-            refreshToken: refresh,
-          );
-          return true;
-        }
+      final tokenData = _extractTokenPayload(response.data);
+      final access = (tokenData['accessToken'] ?? tokenData['access_token'])
+          ?.toString();
+      final refresh = (tokenData['refreshToken'] ?? tokenData['refresh_token'])
+          ?.toString();
+      if (access != null && access.isNotEmpty) {
+        await _tokenStorage.writeTokens(
+          accessToken: access,
+          refreshToken: refresh,
+        );
+        return true;
       }
 
       return false;
@@ -205,5 +212,30 @@ class DioClient {
       completer.complete();
       _refreshFuture = null;
     }
+  }
+
+  bool _isPublicEndpoint(String path) {
+    final normalized = path.split('?').first;
+    return _publicPaths.any(
+      (publicPath) =>
+          normalized == publicPath || normalized.endsWith(publicPath),
+    );
+  }
+
+  Map<String, dynamic> _extractTokenPayload(dynamic responseData) {
+    if (responseData is! Map<String, dynamic>) {
+      return <String, dynamic>{};
+    }
+
+    final level1 = responseData['data'];
+    if (level1 is Map<String, dynamic>) {
+      final level2 = level1['data'];
+      if (level2 is Map<String, dynamic>) {
+        return level2;
+      }
+      return level1;
+    }
+
+    return responseData;
   }
 }

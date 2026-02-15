@@ -12,6 +12,7 @@ class TokenStorage {
 
   Future<String?> readRefreshToken() =>
       _storage.read(key: StorageKeys.refreshToken);
+  Future<String?> readDeviceId() => _storage.read(key: StorageKeys.deviceId);
 
   Future<void> writeTokens({
     required String? accessToken,
@@ -23,9 +24,16 @@ class TokenStorage {
     }
   }
 
-  Future<void> clear() async {
+  Future<void> writeDeviceId(String deviceId) async {
+    await _storage.write(key: StorageKeys.deviceId, value: deviceId);
+  }
+
+  Future<void> clear({bool clearDeviceId = false}) async {
     await _storage.delete(key: StorageKeys.accessToken);
     await _storage.delete(key: StorageKeys.refreshToken);
+    if (clearDeviceId) {
+      await _storage.delete(key: StorageKeys.deviceId);
+    }
   }
 
   Future<bool> hasValidToken() async {

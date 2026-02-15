@@ -7,7 +7,13 @@ sealed class AuthEvent extends Equatable {
   List<Object> get props => [];
 }
 
-class AppStarted extends AuthEvent {}
+class AuthStarted extends AuthEvent {}
+
+class AppStarted extends AuthStarted {}
+
+class GoogleSignInRequested extends AuthEvent {}
+
+class TokenRefreshRequested extends AuthEvent {}
 
 class LoginFormSubmitted extends AuthEvent {
   final LoginRequestData loginRequestData;
@@ -28,3 +34,5 @@ class RegisterFormSubmitted extends AuthEvent {
 }
 
 class LogoutRequested extends AuthEvent {}
+
+class LogoutAllRequested extends AuthEvent {}

@@ -4,12 +4,31 @@ import 'app_env.dart';
 
 class EnvLoader {
   static Future<void> load() async {
-    final file = switch (Env.appEnv) {
-      AppEnv.dev => 'env/.env.dev',
-      AppEnv.production => 'env/.env.production',
+    final candidates = switch (Env.appEnv) {
+      AppEnv.dev => const [
+        'env/.env.dev',
+        'env/.env.dev.example',
+        'env/.env.example',
+      ],
+      AppEnv.production => const [
+        'env/.env.production',
+        'env/.env.production.example',
+        'env/.env.example',
+      ],
     };
 
-    await dotenv.load(fileName: file);
+    for (final file in candidates) {
+      try {
+        await dotenv.load(fileName: file);
+        return;
+      } catch (_) {
+        // Try the next fallback.
+      }
+    }
+
+    throw StateError(
+      'Missing environment file. Expected one of: ${candidates.join(', ')}',
+    );
   }
 
   static String get(String key, {String fallback = ''}) {
