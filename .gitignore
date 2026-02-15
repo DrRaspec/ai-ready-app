@@ -44,10 +44,21 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-# Environment variables
-env/
+# Environment variables (commit only examples)
+env/*
 *.env
 *.env.*
+!.env.example
+!env/.env.example
+!env/.env.dev.example
+!env/.env.production.example
+
+# Android signing secrets
+android/key.properties
+*.jks
+*.keystore
+*.p12
+*.pem
 
 # FVM Version Cache
 .fvm/

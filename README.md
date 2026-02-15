@@ -42,14 +42,22 @@ flutter doctor
    ```
 
 3. **Set up environment files**:
-   - Copy the example environment files or create your own in the `env/` directory.
-   - For development: `env/.env.dev`
-   - For production: `env/.env.production`
-   - Example content:
+   - Copy the example files in `env/`:
+     - `env/.env.dev.example` -> `env/.env.dev`
+     - `env/.env.production.example` -> `env/.env.production`
+   - Required keys:
      ```
-     API_KEY=your_ai_api_key_here
+     API_BASE_URL=https://api.example.com
      BASE_URL=https://api.example.com
+     GOOGLE_WEB_CLIENT_ID=your-google-web-client-id.apps.googleusercontent.com
+     ENABLE_MOCK_AUTH=false
+     CONNECT_TIMEOUT=10000
      ```
+
+4. **Set up Android release signing**:
+   - Copy `android/key.properties.example` -> `android/key.properties`.
+   - Fill in `storePassword`, `keyPassword`, `keyAlias`, and `storeFile`.
+   - Keep both `android/key.properties` and your keystore file out of git.
 
 ## Usage
 
