@@ -8,6 +8,8 @@ import 'package:ai_chat_bot/features/discover/presentation/pages/discover_page.d
 import 'package:ai_chat_bot/features/prompts/presentation/pages/prompt_library_page.dart'; // Added import
 import 'package:ai_chat_bot/features/settings/presentation/pages/personalization_page.dart'; // Added import
 import 'package:ai_chat_bot/features/auth/presentation/pages/sessions_page.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'route_names.dart';
@@ -31,12 +33,14 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: RoutePaths.login,
       name: RouteNames.login,
-      builder: (context, state) => const LoginPage(),
+      pageBuilder: (context, state) =>
+          _buildAdaptivePage(state: state, child: const LoginPage()),
     ),
     GoRoute(
       path: RoutePaths.register,
       name: RouteNames.register,
-      builder: (context, state) => const RegisterPage(),
+      pageBuilder: (context, state) =>
+          _buildAdaptivePage(state: state, child: const RegisterPage()),
     ),
     // GoRoute(
     //   path: RoutePaths.conversations,
@@ -46,7 +50,7 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: RoutePaths.chat,
       name: RouteNames.chat,
-      builder: (context, state) {
+      pageBuilder: (context, state) {
         final extra = state.extra;
         String? conversationId;
         String? scrollToMessageId;
@@ -58,46 +62,125 @@ final GoRouter appRouter = GoRouter(
           scrollToMessageId = extra['messageId'] as String?;
         }
 
-        return ChatPage(
-          conversationId: conversationId,
-          scrollToMessageId: scrollToMessageId,
+        return _buildAdaptivePage(
+          state: state,
+          child: ChatPage(
+            conversationId: conversationId,
+            scrollToMessageId: scrollToMessageId,
+          ),
         );
       },
     ),
     GoRoute(
       path: RoutePaths.usage,
       name: RouteNames.usage,
-      builder: (context, state) => const UsagePage(),
+      pageBuilder: (context, state) =>
+          _buildAdaptivePage(state: state, child: const UsagePage()),
     ),
     GoRoute(
       path: RoutePaths.profile,
       name: RouteNames.profile,
-      builder: (context, state) => const ProfileScreen(),
+      pageBuilder: (context, state) =>
+          _buildAdaptivePage(state: state, child: const ProfileScreen()),
     ),
     GoRoute(
       path: RoutePaths.bookmarks,
       name: RouteNames.bookmarks,
-      builder: (context, state) => const BookmarksPage(),
+      pageBuilder: (context, state) =>
+          _buildAdaptivePage(state: state, child: const BookmarksPage()),
     ),
     GoRoute(
       path: RoutePaths.discover,
       name: RouteNames.discover,
-      builder: (context, state) => const DiscoverPage(),
+      pageBuilder: (context, state) =>
+          _buildAdaptivePage(state: state, child: const DiscoverPage()),
     ),
     GoRoute(
       path: RoutePaths.prompts,
       name: RouteNames.prompts,
-      builder: (context, state) => const PromptLibraryPage(),
+      pageBuilder: (context, state) =>
+          _buildAdaptivePage(state: state, child: const PromptLibraryPage()),
     ),
     GoRoute(
       path: RoutePaths.personalization,
       name: RouteNames.personalization,
-      builder: (context, state) => const PersonalizationPage(),
+      pageBuilder: (context, state) =>
+          _buildAdaptivePage(state: state, child: const PersonalizationPage()),
     ),
     GoRoute(
       path: RoutePaths.sessions,
       name: RouteNames.sessions,
-      builder: (context, state) => const SessionsPage(),
+      pageBuilder: (context, state) =>
+          _buildAdaptivePage(state: state, child: const SessionsPage()),
     ),
   ],
 );
+
+CustomTransitionPage<void> _buildAdaptivePage({
+  required GoRouterState state,
+  required Widget child,
+}) {
+  final isCupertino =
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.macOS);
+
+  if (isCupertino) {
+    return CustomTransitionPage<void>(
+      key: state.pageKey,
+      child: child,
+      transitionDuration: const Duration(milliseconds: 300),
+      reverseTransitionDuration: const Duration(milliseconds: 260),
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        final primary = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
+        final secondary = CurvedAnimation(
+          parent: secondaryAnimation,
+          curve: Curves.easeOut,
+          reverseCurve: Curves.easeIn,
+        );
+
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(1, 0),
+            end: Offset.zero,
+          ).animate(primary),
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: Offset.zero,
+              end: const Offset(-0.25, 0),
+            ).animate(secondary),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+
+  return CustomTransitionPage<void>(
+    key: state.pageKey,
+    child: child,
+    transitionDuration: const Duration(milliseconds: 260),
+    reverseTransitionDuration: const Duration(milliseconds: 220),
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      );
+      return FadeTransition(
+        opacity: curved,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 0.04),
+            end: Offset.zero,
+          ).animate(curved),
+          child: child,
+        ),
+      );
+    },
+  );
+}

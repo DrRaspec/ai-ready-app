@@ -28,6 +28,7 @@ class _SessionsView extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Active Sessions'),
         centerTitle: true,
@@ -66,43 +67,59 @@ class _SessionsView extends StatelessWidget {
           ),
         ],
       ),
-      body: BlocConsumer<SessionsCubit, SessionsState>(
-        listener: (context, state) {
-          if (state is SessionsError) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(state.message)));
-          }
-        },
-        builder: (context, state) {
-          if (state is SessionsLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              colorScheme.primary.withValues(alpha: 0.1),
+              theme.scaffoldBackgroundColor,
+              theme.scaffoldBackgroundColor,
+            ],
+          ),
+        ),
+        child: BlocConsumer<SessionsCubit, SessionsState>(
+          listener: (context, state) {
+            if (state is SessionsError) {
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text(state.message)));
+            }
+          },
+          builder: (context, state) {
+            if (state is SessionsLoading) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-          if (state is SessionsLoaded) {
-            if (state.sessions.isEmpty) {
-              return Center(
-                child: Text(
-                  'No active sessions found.',
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
+            if (state is SessionsLoaded) {
+              if (state.sessions.isEmpty) {
+                return Center(
+                  child: Text(
+                    'No active sessions found.',
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                   ),
-                ),
+                );
+              }
+
+              return ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: state.sessions.length,
+                itemBuilder: (context, index) {
+                  final session = state.sessions[index];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _SessionTile(session: session),
+                  );
+                },
               );
             }
 
-            return ListView.separated(
-              itemCount: state.sessions.length,
-              separatorBuilder: (context, index) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                final session = state.sessions[index];
-                return _SessionTile(session: session);
-              },
-            );
-          }
-
-          return const SizedBox.shrink();
-        },
+            return const SizedBox.shrink();
+          },
+        ),
       ),
     );
   }
@@ -138,99 +155,112 @@ class _SessionTile extends StatelessWidget {
       deviceIcon = Icons.laptop;
     }
 
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: isCurrent
-            ? colorScheme.primaryContainer
-            : colorScheme.surfaceContainerHighest,
-        child: Icon(
-          deviceIcon,
-          color: isCurrent ? colorScheme.primary : colorScheme.onSurfaceVariant,
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.surface.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
         ),
       ),
-      title: Row(
-        children: [
-          Expanded(
-            child: Text(
-              session.deviceInfo,
-              style: theme.textTheme.bodyLarge?.copyWith(
-                fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+      child: ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: CircleAvatar(
+          backgroundColor: isCurrent
+              ? colorScheme.primaryContainer
+              : colorScheme.surfaceContainerHighest,
+          child: Icon(
+            deviceIcon,
+            color: isCurrent
+                ? colorScheme.primary
+                : colorScheme.onSurfaceVariant,
           ),
-          if (isCurrent) ...[
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: colorScheme.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: colorScheme.primary.withValues(alpha: 0.5),
-                ),
-              ),
-              child: Text(
-                'Current',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: colorScheme.primary,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-      subtitle: Padding(
-        padding: const EdgeInsets.only(top: 4),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        ),
+        title: Row(
           children: [
-            Text('IP: ${session.ipAddress}'),
-            Text(
-              'Last Active: $lastActiveStr',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
+            Expanded(
+              child: Text(
+                session.deviceInfo,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
+            if (isCurrent) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: colorScheme.primary.withValues(alpha: 0.5),
+                  ),
+                ),
+                child: Text(
+                  'Current',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
-      ),
-      trailing: canTerminate
-          ? IconButton(
-              icon: Icon(Icons.exit_to_app, color: colorScheme.error),
-              tooltip: 'Terminate Session',
-              onPressed: () {
-                final sessionsCubit = context.read<SessionsCubit>();
-                showDialog(
-                  context: context,
-                  builder: (dialogContext) => AlertDialog(
-                    title: const Text('Terminate Session?'),
-                    content: Text(
-                      'Are you sure you want to log out from "${session.deviceInfo}"?',
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(dialogContext),
-                        child: const Text('Cancel'),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('IP: ${session.ipAddress}'),
+              Text(
+                'Last Active: $lastActiveStr',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+        trailing: canTerminate
+            ? IconButton(
+                icon: Icon(Icons.exit_to_app, color: colorScheme.error),
+                tooltip: 'Terminate Session',
+                onPressed: () {
+                  final sessionsCubit = context.read<SessionsCubit>();
+                  showDialog(
+                    context: context,
+                    builder: (dialogContext) => AlertDialog(
+                      title: const Text('Terminate Session?'),
+                      content: Text(
+                        'Are you sure you want to log out from "${session.deviceInfo}"?',
                       ),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.pop(dialogContext);
-                          sessionsCubit.terminateSession(session.sessionId);
-                        },
-                        style: TextButton.styleFrom(
-                          foregroundColor: colorScheme.error,
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(dialogContext),
+                          child: const Text('Cancel'),
                         ),
-                        child: const Text('Terminate'),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            )
-          : null,
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pop(dialogContext);
+                            sessionsCubit.terminateSession(session.sessionId);
+                          },
+                          style: TextButton.styleFrom(
+                            foregroundColor: colorScheme.error,
+                          ),
+                          child: const Text('Terminate'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              )
+            : null,
+      ),
     );
   }
 }

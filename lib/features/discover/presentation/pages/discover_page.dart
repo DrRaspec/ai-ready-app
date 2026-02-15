@@ -12,28 +12,42 @@ class DiscoverPage extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(title: const Text('Discover')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Hero Section
-            _buildHeroSection(theme, colorScheme),
-            const SizedBox(height: 24),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              colorScheme.primary.withValues(alpha: 0.1),
+              theme.scaffoldBackgroundColor,
+              theme.scaffoldBackgroundColor,
+            ],
+          ),
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Hero Section
+              _buildHeroSection(theme, colorScheme),
+              const SizedBox(height: 24),
 
-            // Tips Section
-            _buildTipsSection(theme, colorScheme),
-            const SizedBox(height: 24),
+              // Tips Section
+              _buildTipsSection(theme, colorScheme),
+              const SizedBox(height: 24),
 
-            // AI Capabilities
-            _buildCapabilitiesSection(theme, colorScheme),
-            const SizedBox(height: 24),
+              // AI Capabilities
+              _buildCapabilitiesSection(theme, colorScheme),
+              const SizedBox(height: 24),
 
-            // Prompt Ideas
-            _buildPromptIdeasSection(context, theme, colorScheme),
-            const SizedBox(height: 32),
-          ],
+              // Prompt Ideas
+              _buildPromptIdeasSection(context, theme, colorScheme),
+              const SizedBox(height: 32),
+            ],
+          ),
         ),
       ),
     );
@@ -46,8 +60,8 @@ class DiscoverPage extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            colorScheme.primary.withValues(alpha: 0.8),
-            colorScheme.tertiary.withValues(alpha: 0.8),
+            colorScheme.primary.withValues(alpha: 0.92),
+            colorScheme.secondary.withValues(alpha: 0.88),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -138,37 +152,37 @@ class DiscoverPage extends StatelessWidget {
         'icon': Icons.chat_rounded,
         'name': 'Chat',
         'desc': 'Natural conversations',
-        'color': 0xFF6366F1,
+        'color': 0xFF0B6E99,
       },
       {
         'icon': Icons.image_rounded,
         'name': 'Vision',
         'desc': 'Analyze images',
-        'color': 0xFF10B981,
+        'color': 0xFF0E9F6E,
       },
       {
         'icon': Icons.mic_rounded,
         'name': 'Voice',
         'desc': 'Speech to text',
-        'color': 0xFFF59E0B,
+        'color': 0xFFB45309,
       },
       {
         'icon': Icons.brush_rounded,
         'name': 'Generate',
         'desc': 'Create images',
-        'color': 0xFFEC4899,
+        'color': 0xFF0F766E,
       },
       {
         'icon': Icons.code_rounded,
         'name': 'Code',
         'desc': 'Write & debug',
-        'color': 0xFF8B5CF6,
+        'color': 0xFF1E3A8A,
       },
       {
         'icon': Icons.translate_rounded,
         'name': 'Translate',
         'desc': 'Any language',
-        'color': 0xFF06B6D4,
+        'color': 0xFF0C4A6E,
       },
     ];
 
@@ -188,23 +202,28 @@ class DiscoverPage extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 0.9,
-          ),
-          itemCount: capabilities.length,
-          itemBuilder: (context, index) {
-            final cap = capabilities[index];
-            return _CapabilityCard(
-              icon: cap['icon'] as IconData,
-              name: cap['name'] as String,
-              description: cap['desc'] as String,
-              color: Color(cap['color'] as int),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final crossAxisCount = constraints.maxWidth >= 740 ? 3 : 2;
+            return GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossAxisCount,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 1.05,
+              ),
+              itemCount: capabilities.length,
+              itemBuilder: (context, index) {
+                final cap = capabilities[index];
+                return _CapabilityCard(
+                  icon: cap['icon'] as IconData,
+                  name: cap['name'] as String,
+                  description: cap['desc'] as String,
+                  color: Color(cap['color'] as int),
+                );
+              },
             );
           },
         ),
@@ -306,8 +325,8 @@ class _TipCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(12),
+        color: colorScheme.surface.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.5),
         ),
@@ -371,9 +390,9 @@ class _CapabilityCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,

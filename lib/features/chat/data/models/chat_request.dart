@@ -5,6 +5,7 @@ class ChatRequest {
   final String? imageBase64;
   final String? imageUrl;
   final String? imageMimeType;
+  final String? aspectRatio;
   final String? model;
   final double? temperature;
   final String? modeHint;
@@ -18,6 +19,7 @@ class ChatRequest {
     this.imageBase64,
     this.imageUrl,
     this.imageMimeType,
+    this.aspectRatio,
     this.model,
     this.temperature,
     this.modeHint,
@@ -32,6 +34,7 @@ class ChatRequest {
     if (imageBase64 != null) map['imageBase64'] = imageBase64;
     if (imageUrl != null) map['imageUrl'] = imageUrl;
     if (imageMimeType != null) map['imageMimeType'] = imageMimeType;
+    if (aspectRatio != null) map['aspectRatio'] = aspectRatio;
     if (model != null) map['model'] = model;
     if (temperature != null) map['temperature'] = temperature;
     if (modeHint != null) map['modeHint'] = modeHint;

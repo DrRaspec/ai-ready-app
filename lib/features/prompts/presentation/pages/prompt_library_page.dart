@@ -28,89 +28,111 @@ class _PromptLibraryView extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(title: const Text('Prompt Library')),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddPromptDialog(context),
         label: const Text('New Prompt'),
         icon: const Icon(Icons.add),
       ),
-      body: BlocBuilder<PromptCubit, PromptState>(
-        builder: (context, state) {
-          if (state is PromptLoading) {
-            return Skeletonizer(
-              enabled: true,
-              child: ListView.builder(
-                itemCount: 5,
-                itemBuilder: (context, index) => ListTile(
-                  title: const Text('Loading Prompt...'),
-                  subtitle: const Text('Description...'),
-                ),
-              ),
-            );
-          } else if (state is PromptError) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.error_outline, size: 48, color: colorScheme.error),
-                  const SizedBox(height: 16),
-                  Text(state.message),
-                  const SizedBox(height: 16),
-                  FilledButton(
-                    onPressed: () => context.read<PromptCubit>().loadPrompts(),
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
-            );
-          } else if (state is PromptLoaded) {
-            if (state.prompts.isEmpty) {
-              return Center(
-                child: Text(
-                  'No prompts yet. Create one!',
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              colorScheme.primary.withValues(alpha: 0.1),
+              theme.scaffoldBackgroundColor,
+              theme.scaffoldBackgroundColor,
+            ],
+          ),
+        ),
+        child: BlocBuilder<PromptCubit, PromptState>(
+          builder: (context, state) {
+            if (state is PromptLoading) {
+              return Skeletonizer(
+                enabled: true,
+                child: ListView.builder(
+                  itemCount: 5,
+                  itemBuilder: (context, index) => ListTile(
+                    title: const Text('Loading Prompt...'),
+                    subtitle: const Text('Description...'),
                   ),
                 ),
               );
-            }
-
-            return ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: state.prompts.length,
-              itemBuilder: (context, index) {
-                final prompt = state.prompts[index];
-                return Card(
-                  elevation: 0,
-                  color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
-                  margin: const EdgeInsets.only(bottom: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(
-                      color: colorScheme.outlineVariant.withOpacity(0.5),
+            } else if (state is PromptError) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.error_outline,
+                      size: 48,
+                      color: colorScheme.error,
                     ),
-                  ),
-                  child: ListTile(
-                    title: Text(
-                      prompt['title'] ?? 'Untitled',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    const SizedBox(height: 16),
+                    Text(state.message),
+                    const SizedBox(height: 16),
+                    FilledButton(
+                      onPressed: () =>
+                          context.read<PromptCubit>().loadPrompts(),
+                      child: const Text('Retry'),
                     ),
-                    subtitle: Text(
-                      prompt['content'] ?? '',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                  ],
+                ),
+              );
+            } else if (state is PromptLoaded) {
+              if (state.prompts.isEmpty) {
+                return Center(
+                  child: Text(
+                    'No prompts yet. Create one!',
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
                     ),
-                    onTap: () {
-                      // TODO: Select logic or edit
-                    },
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                   ),
                 );
-              },
-            );
-          }
-          return const SizedBox.shrink();
-        },
+              }
+
+              return ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: state.prompts.length,
+                itemBuilder: (context, index) {
+                  final prompt = state.prompts[index];
+                  return Card(
+                    elevation: 0,
+                    color: colorScheme.surface.withValues(alpha: 0.9),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(
+                        color: colorScheme.outlineVariant.withValues(
+                          alpha: 0.5,
+                        ),
+                      ),
+                    ),
+                    child: ListTile(
+                      title: Text(
+                        (prompt['name'] ?? prompt['title'] ?? 'Untitled')
+                            .toString(),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Text(
+                        prompt['content'] ?? '',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      onTap: () {
+                        // TODO: Select logic or edit
+                      },
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    ),
+                  );
+                },
+              );
+            }
+            return const SizedBox.shrink();
+          },
+        ),
       ),
     );
   }

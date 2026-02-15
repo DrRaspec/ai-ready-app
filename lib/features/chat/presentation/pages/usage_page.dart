@@ -21,80 +21,96 @@ class _UsagePageState extends State<UsagePage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(title: const Text('Usage Statistics')),
-      body: BlocBuilder<ChatBloc, ChatState>(
-        builder: (context, state) {
-          final usage = state.usage;
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              colorScheme.primary.withValues(alpha: 0.1),
+              theme.scaffoldBackgroundColor,
+              theme.scaffoldBackgroundColor,
+            ],
+          ),
+        ),
+        child: BlocBuilder<ChatBloc, ChatState>(
+          builder: (context, state) {
+            final usage = state.usage;
 
-          if (usage == null) {
-            return Skeletonizer(
-              enabled: true,
+            if (usage == null) {
+              return Skeletonizer(
+                enabled: true,
+                child: ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: const [
+                    _UsageCard(
+                      title: 'Today',
+                      tokens: 1560,
+                      requests: 42,
+                      icon: Icons.today,
+                      color: Colors.blue,
+                    ),
+                    SizedBox(height: 16),
+                    _UsageCard(
+                      title: 'This Week',
+                      tokens: 12500,
+                      requests: 350,
+                      icon: Icons.date_range,
+                      color: Colors.green,
+                    ),
+                    SizedBox(height: 16),
+                    _UsageCard(
+                      title: 'This Month',
+                      tokens: 45000,
+                      requests: 1200,
+                      icon: Icons.calendar_month,
+                      color: Colors.orange,
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return RefreshIndicator(
+              onRefresh: () async {
+                context.read<ChatBloc>().add(const LoadUsage());
+              },
               child: ListView(
                 padding: const EdgeInsets.all(16),
-                children: const [
+                children: [
                   _UsageCard(
                     title: 'Today',
-                    tokens: 1560,
-                    requests: 42,
+                    tokens: usage.todayTokens,
+                    requests: usage.todayRequests,
                     icon: Icons.today,
                     color: Colors.blue,
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   _UsageCard(
                     title: 'This Week',
-                    tokens: 12500,
-                    requests: 350,
+                    tokens: usage.weeklyTokens,
+                    requests: usage.weeklyRequests,
                     icon: Icons.date_range,
                     color: Colors.green,
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   _UsageCard(
                     title: 'This Month',
-                    tokens: 45000,
-                    requests: 1200,
+                    tokens: usage.monthlyTokens,
+                    requests: usage.monthlyRequests,
                     icon: Icons.calendar_month,
                     color: Colors.orange,
                   ),
                 ],
               ),
             );
-          }
-
-          return RefreshIndicator(
-            onRefresh: () async {
-              context.read<ChatBloc>().add(const LoadUsage());
-            },
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                _UsageCard(
-                  title: 'Today',
-                  tokens: usage.todayTokens,
-                  requests: usage.todayRequests,
-                  icon: Icons.today,
-                  color: Colors.blue,
-                ),
-                const SizedBox(height: 16),
-                _UsageCard(
-                  title: 'This Week',
-                  tokens: usage.weeklyTokens,
-                  requests: usage.weeklyRequests,
-                  icon: Icons.date_range,
-                  color: Colors.green,
-                ),
-                const SizedBox(height: 16),
-                _UsageCard(
-                  title: 'This Month',
-                  tokens: usage.monthlyTokens,
-                  requests: usage.monthlyRequests,
-                  icon: Icons.calendar_month,
-                  color: Colors.orange,
-                ),
-              ],
-            ),
-          );
-        },
+          },
+        ),
       ),
     );
   }
@@ -117,40 +133,46 @@ class _UsageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, color: color, size: 28),
-                const SizedBox(width: 12),
-                Text(title, style: Theme.of(context).textTheme.titleLarge),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: _StatItem(
-                    label: 'Tokens',
-                    value: _formatNumber(tokens),
-                    color: color,
-                  ),
-                ),
-                Expanded(
-                  child: _StatItem(
-                    label: 'Requests',
-                    value: requests.toString(),
-                    color: color,
-                  ),
-                ),
-              ],
-            ),
-          ],
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: colorScheme.surface.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
         ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 28),
+              const SizedBox(width: 12),
+              Text(title, style: Theme.of(context).textTheme.titleLarge),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: _StatItem(
+                  label: 'Tokens',
+                  value: _formatNumber(tokens),
+                  color: color,
+                ),
+              ),
+              Expanded(
+                child: _StatItem(
+                  label: 'Requests',
+                  value: requests.toString(),
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

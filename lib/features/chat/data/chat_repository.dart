@@ -1,4 +1,5 @@
 import 'dart:convert';
+
 import 'package:ai_chat_bot/core/errors/api_exception.dart';
 import 'package:ai_chat_bot/core/network/api_paths.dart';
 import 'package:ai_chat_bot/core/network/dio_client.dart';
@@ -6,11 +7,10 @@ import 'package:ai_chat_bot/core/network/models/api_response.dart';
 import 'package:ai_chat_bot/features/chat/data/models/chat_request.dart';
 import 'package:ai_chat_bot/features/chat/data/models/chat_response.dart';
 import 'package:ai_chat_bot/features/chat/data/models/conversation.dart';
-import 'package:ai_chat_bot/features/chat/data/models/message.dart';
 import 'package:ai_chat_bot/features/chat/data/models/image_generation_request.dart';
-import 'package:ai_chat_bot/features/chat/data/models/usage_summary.dart';
-
+import 'package:ai_chat_bot/features/chat/data/models/message.dart';
 import 'package:ai_chat_bot/features/chat/data/models/search_result.dart';
+import 'package:ai_chat_bot/features/chat/data/models/usage_summary.dart';
 import 'package:dio/dio.dart';
 
 class ChatRepository {
@@ -18,19 +18,15 @@ class ChatRepository {
 
   ChatRepository(DioClient dioClient) : _dioClient = dioClient;
 
-  /// Send a smart message (unified endpoint).
-  /// Uses /ai/smart for first message, /ai/smart/{conversationId} for subsequent messages.
   Future<ApiResponse<ChatResponse>> sendSmartMessage(
     ChatRequest request,
   ) async {
     try {
-      // Use conversation-specific endpoint if we have a conversationId
       final path = request.conversationId != null
-          ? ApiPaths.chatWithConversation(request.conversationId!)
-          : ApiPaths.chat;
+          ? ApiPaths.smartWithConversation(request.conversationId!)
+          : ApiPaths.smart;
 
       final response = await _dioClient.dio.post(path, data: request.toJson());
-
       return ApiResponse<ChatResponse>.fromJson(
         response.data,
         (json) => ChatResponse.fromJson(json as Map<String, dynamic>),
@@ -40,17 +36,8 @@ class ChatRepository {
     }
   }
 
-  /// Stream a smart message (SSE).
-  /// Returns a Stream of partial text chunks.
   Stream<String> streamSmartMessage(ChatRequest request) async* {
     try {
-      // Dio doesn't support SSE natively well, using standard http for streaming
-      // Construct full URL
-      // We need to use DioClient's base URL and headers logic, but for simplicity
-      // and standard SSE support, we'll assume a helper or direct implementation.
-      // Ideally, DioClient should expose a streamed request method.
-      // For now, implementing with ResponseType.stream in Dio.
-
       final path = request.conversationId != null
           ? ApiPaths.streamChatWithConversation(request.conversationId!)
           : ApiPaths.streamChat;
@@ -66,50 +53,41 @@ class ChatRepository {
 
       final stream = response.data.stream as Stream<List<int>>;
 
-      // Use a transformer to handle decoding and splitting lines
-      // Note: This is a basic implementation. real SSE parsers handle 'data:' prefix
       yield* stream
           .cast<List<int>>()
           .transform(utf8.decoder)
           .transform(const LineSplitter())
           .map((line) {
-            if (line.startsWith('data:')) {
-              // Capture everything after 'data:' including the leading space if potential content
-              var data = line.substring(5);
+            if (!line.startsWith('data:')) return '';
 
-              // Remove [CONV_ID:...] metadata if present
-              if (data.contains('[CONV_ID:')) {
-                data = data.replaceAll(RegExp(r'\[CONV_ID:[^\]]+\]'), '');
-              }
-
-              // Check for DONE marker (trimming just for this check)
-              if (data.trim() == '[DONE]') return '';
-
-              return data;
+            var data = line.substring(5);
+            if (data.contains('[CONV_ID:')) {
+              data = data.replaceAll(RegExp(r'\[CONV_ID:[^\]]+\]'), '');
             }
-            return '';
+            if (data.trim() == '[DONE]') return '';
+            return data;
           })
-          .where((text) => text.isNotEmpty);
+          .where((chunk) => chunk.isNotEmpty);
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }
   }
 
-  /// Share a conversation.
-  Future<ApiResponse<String>> shareConversation(String conversationId) async {
+  Future<ApiResponse<String>> shareConversation(
+    String conversationId, {
+    int? expiresInDays,
+  }) async {
     try {
       final response = await _dioClient.dio.post(
         ApiPaths.shareConversation(conversationId),
+        queryParameters: {
+          if (expiresInDays != null) 'expiresInDays': expiresInDays,
+        },
       );
 
-      // User snippet says: jsonDecode(response.body)['data']['shareUrl']
-      // ApiResponse handles wrapping. 'data' usually contains the payload.
-      // If server returns { success: true, data: { shareUrl: "..." } }
-      // We expect generic parser to extract 'data'.
-      // So passed json is { shareUrl: "..." }
       return ApiResponse<String>.fromJson(response.data, (json) {
-        if (json is Map<String, dynamic> && json['shareUrl'] != null) {
-          return json['shareUrl'] as String;
+        if (json is Map<String, dynamic>) {
+          return (json['shareUrl'] ?? '').toString();
         }
         return '';
       });
@@ -118,7 +96,33 @@ class ChatRepository {
     }
   }
 
-  /// Get user preferences.
+  Future<ApiResponse<void>> unshareConversation(String conversationId) async {
+    try {
+      final response = await _dioClient.dio.delete(
+        ApiPaths.shareConversation(conversationId),
+      );
+      return ApiResponse<void>.fromJson(response.data, (_) {});
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<ApiResponse<Map<String, dynamic>>> getSharedConversation(
+    String token,
+  ) async {
+    try {
+      final response = await _dioClient.dio.get(
+        ApiPaths.sharedConversation(token),
+      );
+      return ApiResponse<Map<String, dynamic>>.fromJson(
+        response.data,
+        (json) => json as Map<String, dynamic>,
+      );
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
   Future<ApiResponse<Map<String, dynamic>>> getPreferences() async {
     try {
       final response = await _dioClient.dio.get(ApiPaths.preferences);
@@ -131,7 +135,6 @@ class ChatRepository {
     }
   }
 
-  /// Update user preferences.
   Future<ApiResponse<Map<String, dynamic>>> updatePreferences(
     Map<String, dynamic> preferences,
   ) async {
@@ -149,7 +152,6 @@ class ChatRepository {
     }
   }
 
-  /// Send a new chat message (creates new conversation).
   @Deprecated(
     'Use sendSmartMessage instead - unified endpoint with conversation context',
   )
@@ -169,7 +171,6 @@ class ChatRepository {
     }
   }
 
-  /// Send a message to an existing conversation.
   @Deprecated(
     'Use sendSmartMessage instead - unified endpoint with conversation context',
   )
@@ -192,7 +193,6 @@ class ChatRepository {
     }
   }
 
-  /// Send a vision chat message (uses llama-3.2-11b-vision-preview).
   @Deprecated(
     'Use sendSmartMessage with imageBase64 - backend auto-detects vision mode',
   )
@@ -214,7 +214,6 @@ class ChatRepository {
     }
   }
 
-  /// Send a vision message to an existing conversation.
   @Deprecated(
     'Use sendSmartMessage with imageBase64 - backend auto-detects vision mode',
   )
@@ -237,7 +236,6 @@ class ChatRepository {
     }
   }
 
-  /// Generate an image from a prompt.
   Future<ApiResponse<ChatResponse>> generateImage(
     ImageGenerationRequest request,
   ) async {
@@ -256,7 +254,6 @@ class ChatRepository {
     }
   }
 
-  /// Edit an image.
   Future<ApiResponse<ChatResponse>> editImage({
     required String prompt,
     required String imagePath,
@@ -282,24 +279,17 @@ class ChatRepository {
     }
   }
 
-  /// Enhance a prompt.
   Future<ApiResponse<String>> enhancePrompt(String prompt) async {
     try {
       final response = await _dioClient.dio.post(
         ApiPaths.enhancePrompt,
-        data: {'prompt': prompt},
-        options: Options(contentType: Headers.formUrlEncodedContentType),
+        queryParameters: {'prompt': prompt},
       );
 
       return ApiResponse<String>.fromJson(response.data, (json) {
-        if (json is Map<String, dynamic> && json['enhancedPrompt'] != null) {
-          return json['enhancedPrompt'] as String;
+        if (json is Map<String, dynamic>) {
+          return (json['enhancedPrompt'] ?? '').toString();
         }
-        // Fallback if the user example response structure matches data['data']['enhancedPrompt']
-        // but generic parser expects data to be the object.
-        // User example: data['data']['enhancedPrompt']
-        // ApiResponse usually extracts 'data'. So 'json' here is 'data'.
-        // If 'data' contains 'enhancedPrompt', we are good.
         return json.toString();
       });
     } on DioException catch (e) {
@@ -307,51 +297,32 @@ class ChatRepository {
     }
   }
 
-  /// Get paginated list of conversations.
   Future<ApiResponse<List<Conversation>>> getConversations({
     int page = 0,
     int size = 20,
     String? folderId,
+    String? sort,
   }) async {
     try {
-      final Map<String, dynamic> queryParams = {'page': page, 'size': size};
-      if (folderId != null) {
-        queryParams['folderId'] = folderId;
-      }
+      final queryParams = <String, dynamic>{'page': page, 'size': size};
+      if (folderId != null) queryParams['folderId'] = folderId;
+      if (sort != null) queryParams['sort'] = sort;
 
       final response = await _dioClient.dio.get(
         ApiPaths.conversations,
         queryParameters: queryParams,
       );
 
-      var responseData = response.data;
-      if (responseData is String) {
-        try {
-          responseData = jsonDecode(responseData);
-        } catch (e) {
-          // responseData remains a String here if decode fails
-        }
-      }
+      final responseData = response.data is String
+          ? (jsonDecode(response.data as String) as Map<String, dynamic>)
+          : Map<String, dynamic>.from(response.data as Map);
 
-      final Map<String, dynamic> jsonMap;
-      if (responseData is Map<String, dynamic>) {
-        jsonMap = responseData;
-      } else if (responseData is Map) {
-        jsonMap = Map<String, dynamic>.from(responseData);
-      } else {
-        // If completely failed to parse or format is wrong, return empty structure or throw
-        // But to avoid crash, let's try to infer if it might be just the list
-        jsonMap = {};
-      }
-
-      return ApiResponse<List<Conversation>>.fromJson(jsonMap, (json) {
-        // Handle paged response
-        if (json is Map && json['content'] != null) {
+      return ApiResponse<List<Conversation>>.fromJson(responseData, (json) {
+        if (json is Map && json['content'] is List) {
           return (json['content'] as List)
               .map((e) => Conversation.fromJson(e as Map<String, dynamic>))
               .toList();
         }
-        // Handle direct list
         if (json is List) {
           return json
               .map((e) => Conversation.fromJson(e as Map<String, dynamic>))
@@ -364,7 +335,41 @@ class ChatRepository {
     }
   }
 
-  /// Get messages for a conversation.
+  Future<ApiResponse<List<Conversation>>> searchConversations(
+    String query, {
+    int page = 0,
+    int size = 20,
+    String? sort,
+  }) async {
+    try {
+      final response = await _dioClient.dio.get(
+        ApiPaths.conversationsSearch,
+        queryParameters: {
+          'q': query,
+          'page': page,
+          'size': size,
+          if (sort != null) 'sort': sort,
+        },
+      );
+
+      return ApiResponse<List<Conversation>>.fromJson(response.data, (json) {
+        if (json is Map && json['content'] is List) {
+          return (json['content'] as List)
+              .map((e) => Conversation.fromJson(e as Map<String, dynamic>))
+              .toList();
+        }
+        if (json is List) {
+          return json
+              .map((e) => Conversation.fromJson(e as Map<String, dynamic>))
+              .toList();
+        }
+        return [];
+      });
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
   Future<ApiResponse<List<Message>>> getConversationMessages(
     String conversationId,
   ) async {
@@ -384,16 +389,19 @@ class ChatRepository {
     }
   }
 
-  /// Edit a message.
   Future<ApiResponse<ChatResponse>> editMessage(
     String conversationId,
     String messageId,
-    String newContent,
-  ) async {
+    String newContent, {
+    String? systemPrompt,
+  }) async {
     try {
       final response = await _dioClient.dio.put(
         ApiPaths.editMessage(conversationId, messageId),
-        data: {'message': newContent},
+        data: {
+          'content': newContent,
+          if (systemPrompt != null) 'systemPrompt': systemPrompt,
+        },
       );
 
       return ApiResponse<ChatResponse>.fromJson(
@@ -405,7 +413,6 @@ class ChatRepository {
     }
   }
 
-  /// Rename a conversation.
   Future<ApiResponse<void>> renameConversation(
     String conversationId,
     String newTitle,
@@ -422,7 +429,6 @@ class ChatRepository {
     }
   }
 
-  /// Move a conversation to a folder.
   Future<ApiResponse<void>> moveConversationToFolder(
     String conversationId,
     String? folderId,
@@ -439,7 +445,6 @@ class ChatRepository {
     }
   }
 
-  /// Delete a conversation.
   Future<ApiResponse<void>> deleteConversation(String conversationId) async {
     try {
       final response = await _dioClient.dio.delete(
@@ -452,7 +457,6 @@ class ChatRepository {
     }
   }
 
-  /// Regenerate response.
   Future<ApiResponse<ChatResponse>> regenerate(String conversationId) async {
     try {
       final response = await _dioClient.dio.post(
@@ -468,7 +472,6 @@ class ChatRepository {
     }
   }
 
-  /// Get conversation summary.
   Future<ApiResponse<String>> getSummary(String conversationId) async {
     try {
       final response = await _dioClient.dio.get(
@@ -476,8 +479,8 @@ class ChatRepository {
       );
 
       return ApiResponse<String>.fromJson(response.data, (json) {
-        if (json is Map<String, dynamic> && json['summary'] != null) {
-          return json['summary'] as String;
+        if (json is Map<String, dynamic>) {
+          return (json['summary'] ?? '').toString();
         }
         return '';
       });
@@ -486,15 +489,35 @@ class ChatRepository {
     }
   }
 
-  /// Rate message feedback.
+  Future<ApiResponse<Map<String, dynamic>>> getSummaryDetails(
+    String conversationId,
+  ) async {
+    try {
+      final response = await _dioClient.dio.get(
+        ApiPaths.summary(conversationId),
+      );
+      return ApiResponse<Map<String, dynamic>>.fromJson(
+        response.data,
+        (json) => json as Map<String, dynamic>,
+      );
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
   Future<ApiResponse<void>> rateFeedback(
     String messageId,
-    bool isPositive,
-  ) async {
+    bool isPositive, {
+    String? feedbackText,
+  }) async {
     try {
       final response = await _dioClient.dio.post(
         ApiPaths.feedback(messageId),
-        queryParameters: {'isPositive': isPositive},
+        queryParameters: {
+          'isPositive': isPositive,
+          if (feedbackText != null && feedbackText.isNotEmpty)
+            'feedbackText': feedbackText,
+        },
       );
 
       return ApiResponse<void>.fromJson(response.data, (_) {});
@@ -503,16 +526,32 @@ class ChatRepository {
     }
   }
 
-  /// Perform web search.
-  Future<ApiResponse<List<SearchResult>>> webSearch(String query) async {
+  Future<ApiResponse<Map<String, dynamic>>> getFeedbackStats(
+    String messageId,
+  ) async {
+    try {
+      final response = await _dioClient.dio.get(ApiPaths.feedback(messageId));
+      return ApiResponse<Map<String, dynamic>>.fromJson(
+        response.data,
+        (json) => json as Map<String, dynamic>,
+      );
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<ApiResponse<List<SearchResult>>> webSearch(
+    String query, {
+    int? limit,
+  }) async {
     try {
       final response = await _dioClient.dio.get(
         ApiPaths.search,
-        queryParameters: {'query': query},
+        queryParameters: {'query': query, if (limit != null) 'limit': limit},
       );
 
       return ApiResponse<List<SearchResult>>.fromJson(response.data, (json) {
-        if (json is Map<String, dynamic> && json['results'] != null) {
+        if (json is Map<String, dynamic> && json['results'] is List) {
           return (json['results'] as List)
               .map((e) => SearchResult.fromJson(e as Map<String, dynamic>))
               .toList();
@@ -524,7 +563,24 @@ class ChatRepository {
     }
   }
 
-  /// Get usage statistics.
+  Future<ApiResponse<bool>> needsWebSearch(String query) async {
+    try {
+      final response = await _dioClient.dio.get(
+        ApiPaths.searchNeedsSearch,
+        queryParameters: {'query': query},
+      );
+
+      return ApiResponse<bool>.fromJson(response.data, (json) {
+        if (json is Map<String, dynamic>) {
+          return json['needsWebSearch'] as bool? ?? false;
+        }
+        return false;
+      });
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
   Future<ApiResponse<UsageSummary>> getUsage() async {
     try {
       final response = await _dioClient.dio.get(ApiPaths.usage);

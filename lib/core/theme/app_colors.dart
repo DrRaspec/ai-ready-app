@@ -2,35 +2,35 @@ import 'package:flutter/material.dart';
 
 class AppColors {
   // Brand / Primary
-  static const primary = Color(0xFF6366F1); // Indigo 500
-  static const primaryDark = Color(0xFF4338CA); // Indigo 700
-  static const secondary = Color(0xFFEC4899); // Pink 500 (Accents)
+  static const primary = Color(0xFF0B6E99);
+  static const primaryDark = Color(0xFF07597D);
+  static const secondary = Color(0xFF14B8A6);
 
   // Light mode
-  static const lightBackground = Color(0xFFF8FAFC); // Slate 50
+  static const lightBackground = Color(0xFFF4F7FB);
   static const lightSurface = Colors.white;
-  static const lightSurfaceContainer = Color(0xFFF1F5F9); // Slate 100
-  static const lightText = Color(0xFF0F172A); // Slate 900
-  static const lightTextSecondary = Color(0xFF64748B); // Slate 500
+  static const lightSurfaceContainer = Color(0xFFE8EEF5);
+  static const lightText = Color(0xFF0F172A);
+  static const lightTextSecondary = Color(0xFF526076);
 
-  static const lightBubbleUser = Color(0xFF6366F1); // Primary
+  static const lightBubbleUser = primary;
   static const lightBubbleUserText = Colors.white;
-  static const lightBubbleAI = Color(0xFFF1F5F9); // Slate 100
-  static const lightBubbleAIText = Color(0xFF0F172A); // Slate 900
+  static const lightBubbleAI = Color(0xFFEAF1F8);
+  static const lightBubbleAIText = lightText;
 
   // Dark mode
-  static const darkBackground = Color(0xFF0F172A); // Slate 900
-  static const darkSurface = Color(0xFF1E293B); // Slate 800
-  static const darkSurfaceContainer = Color(0xFF334155); // Slate 700
-  static const darkText = Color(0xFFF8FAFC); // Slate 50
-  static const darkTextSecondary = Color(0xFF94A3B8); // Slate 400
+  static const darkBackground = Color(0xFF0C1117);
+  static const darkSurface = Color(0xFF141C26);
+  static const darkSurfaceContainer = Color(0xFF1E2A38);
+  static const darkText = Color(0xFFF2F6FB);
+  static const darkTextSecondary = Color(0xFF9AA9BC);
 
-  static const darkBubbleUser = Color(0xFF6366F1); // Primary
+  static const darkBubbleUser = primary;
   static const darkBubbleUserText = Colors.white;
-  static const darkBubbleAI = Color(0xFF334155); // Slate 700
-  static const darkBubbleAIText = Color(0xFFF8FAFC); // Slate 50
+  static const darkBubbleAI = darkSurfaceContainer;
+  static const darkBubbleAIText = darkText;
 
   // Semantic
-  static const error = Color(0xFFEF4444); // Red 500
-  static const success = Color(0xFF22C55E); // Green 500
+  static const error = Color(0xFFD64045);
+  static const success = Color(0xFF16A34A);
 }

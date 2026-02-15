@@ -38,11 +38,14 @@ class FolderRepository {
   }
 
   /// Create a folder
-  Future<ApiResponse<Folder>> createFolder(String name, String color) async {
+  Future<ApiResponse<Folder>> createFolder(
+    String name, {
+    String? parentId,
+  }) async {
     try {
       final response = await _dioClient.dio.post(
         ApiPaths.folders,
-        data: {'name': name, 'color': color},
+        data: {'name': name, if (parentId != null) 'parentId': parentId},
       );
       return ApiResponse<Folder>.fromJson(
         response.data,

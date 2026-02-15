@@ -5,10 +5,11 @@ import 'package:mime/mime.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:bloc/bloc.dart';
 import 'package:ai_chat_bot/core/errors/api_exception.dart';
-import 'package:ai_chat_bot/core/logging/app_logger.dart';
+import 'package:shadow_log/shadow_log.dart';
 import 'package:ai_chat_bot/features/chat/data/chat_repository.dart';
 import 'package:ai_chat_bot/features/chat/data/models/chat_request.dart';
 import 'package:ai_chat_bot/features/chat/data/models/conversation.dart';
+import 'package:ai_chat_bot/features/chat/data/models/image_generation_request.dart';
 import 'package:ai_chat_bot/features/chat/data/models/message.dart';
 import 'package:ai_chat_bot/core/network/models/api_response.dart';
 import 'package:ai_chat_bot/features/chat/data/models/chat_response.dart';
@@ -44,11 +45,34 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<SearchConversations>(_onSearchConversations);
   }
 
-  void _onSearchConversations(
+  Future<void> _onSearchConversations(
     SearchConversations event,
     Emitter<ChatState> emit,
-  ) {
-    emit(state.copyWith(searchQuery: event.query));
+  ) async {
+    final query = event.query.trim();
+    emit(state.copyWith(searchQuery: event.query, clearError: true));
+
+    if (query.isEmpty) {
+      add(const LoadConversations(page: 0));
+      return;
+    }
+
+    try {
+      final response = await _repository.searchConversations(query, page: 0);
+      if (response.success && response.data != null) {
+        emit(
+          state.copyWith(
+            conversations: response.data!,
+            hasMoreConversations: response.data!.length >= 20,
+            conversationPage: 0,
+          ),
+        );
+      } else {
+        emit(state.copyWith(errorMessage: response.message));
+      }
+    } on ApiException catch (e) {
+      emit(state.copyWith(errorMessage: e.message));
+    }
   }
 
   Future<void> _onEditMessage(
@@ -213,7 +237,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         emit(state.copyWith(messages: response.data!));
       }
     } on ApiException catch (e) {
-      AppLogger.e('Silent refresh failed: ${e.message}');
+      ShadowLog.e('Silent refresh failed: ${e.message}');
     }
   }
 
@@ -279,7 +303,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       );
 
       // --- STREAMING LOGIC ---
-      if (event.useStream && modeHint != 'IMAGE_GEN') {
+      if (event.useStream && modeHint == 'CHAT') {
         // Don't stream images
         // 1. Create a placeholder assistant message
         final tempAssistantId =
@@ -322,7 +346,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
             return state;
           },
           onError: (e, stackTrace) {
-            AppLogger.e('Streaming error: $e');
+            ShadowLog.e('Streaming error: $e');
             return state.copyWith(
               errorMessage: 'Streaming failed: ${e.toString()}',
             );
@@ -347,13 +371,17 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
             prompt: event.message,
             imagePath: state.attachedImagePath!,
           );
+        } else if (modeHint == 'IMAGE_GEN') {
+          response = await _repository.generateImage(
+            ImageGenerationRequest(prompt: event.message),
+          );
         } else {
           response = await _repository.sendSmartMessage(request);
         }
 
         if (response.success && response.data != null) {
           final chatResponse = response.data!;
-          AppLogger.d('AI Model Used: ${chatResponse.model ?? "Unknown"}');
+          ShadowLog.d('AI Model Used: ${chatResponse.model ?? "Unknown"}');
 
           // Logic to determine if we show the image
           String? finalImageUrl = chatResponse.imageUrl;
@@ -519,7 +547,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
   Future<List<int>> _compressImage(File file) async {
     final originalSize = await file.length();
-    AppLogger.d(
+    ShadowLog.d(
       'Image: Original Size = ${(originalSize / 1024).toStringAsFixed(2)} KB',
     );
 
@@ -532,17 +560,17 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       );
 
       if (result == null) {
-        AppLogger.d('Image: Compression returned null. Using original.');
+        ShadowLog.d('Image: Compression returned null. Using original.');
         // Fallback to original if compression fails
         return await file.readAsBytes();
       }
 
-      AppLogger.d(
+      ShadowLog.d(
         'Image: Compressed Size = ${(result.length / 1024).toStringAsFixed(2)} KB',
       );
       return result;
     } catch (e) {
-      AppLogger.e('Image: Compression failed ($e).');
+      ShadowLog.e('Image: Compression failed ($e).');
 
       // If original is > 4MB, do not send it as it will likely fail
       if (originalSize > 4 * 1024 * 1024) {
@@ -552,7 +580,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         );
       }
 
-      AppLogger.w('Image: Fallback to original.');
+      ShadowLog.w('Image: Fallback to original.');
       return await file.readAsBytes();
     }
   }
@@ -618,11 +646,15 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     Emitter<ChatState> emit,
   ) async {
     try {
-      await _repository.rateFeedback(event.messageId, event.isPositive);
+      await _repository.rateFeedback(
+        event.messageId,
+        event.isPositive,
+        feedbackText: event.feedbackText,
+      );
       // Optionally show a snackbar or update message state locally to show feedback given
     } on ApiException catch (e) {
       // access context in UI to show error? or emit state error
-      AppLogger.e('Rate Message Failed: ${e.message}');
+      ShadowLog.e('Rate Message Failed: ${e.message}');
     }
   }
 
@@ -631,8 +663,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       final response = await _repository.getSummary(event.conversationId);
       if (response.success) {
         // Show summary in a dialog or snippet in UI?
-        // Using AppLogger for now or we could stick it in a state field `lastSummary`
-        AppLogger.d('Summary: ${response.data}');
+        ShadowLog.d('Summary: ${response.data}');
       }
     } on ApiException catch (e) {
       emit(state.copyWith(errorMessage: e.message));
@@ -649,7 +680,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       if (response.success && response.data != null) {
         // Handle search results, maybe append a system message or separate UI state
         // For now, logging
-        AppLogger.d('Search Results: ${response.data?.length}');
+        ShadowLog.d('Search Results: ${response.data?.length}');
       }
     } on ApiException catch (e) {
       emit(state.copyWith(errorMessage: e.message));

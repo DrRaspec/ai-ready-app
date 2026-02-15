@@ -22,9 +22,9 @@ class FolderCubit extends Cubit<FolderState> {
     }
   }
 
-  Future<void> createFolder(String name, String color) async {
+  Future<void> createFolder(String name, {String? parentId}) async {
     try {
-      final response = await _repository.createFolder(name, color);
+      final response = await _repository.createFolder(name, parentId: parentId);
       if (response.success) {
         // Reload folders
         loadFolders();

@@ -14,7 +14,6 @@ import 'package:ai_chat_bot/core/theme/theme_cubit.dart';
 import 'package:ai_chat_bot/core/theme/theme_state.dart';
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui';
 import 'dart:math' as math; // Added for TypingIndicator
 import 'package:pasteboard/pasteboard.dart';
 import 'package:path_provider/path_provider.dart';
@@ -31,6 +30,7 @@ import 'package:ai_chat_bot/core/theme/app_colors.dart';
 import 'package:ai_chat_bot/features/chat/data/models/conversation.dart';
 import 'package:ai_chat_bot/features/bookmarks/presentation/bloc/bookmarks_cubit.dart';
 import 'package:ai_chat_bot/features/bookmarks/presentation/bloc/bookmarks_state.dart';
+import 'package:shadow_log/shadow_log.dart';
 import 'package:flutter_highlighter/flutter_highlighter.dart';
 
 class ChatPage extends StatefulWidget {
@@ -61,7 +61,7 @@ class _ChatPageState extends State<ChatPage> {
   void initState() {
     super.initState();
 
-    print("ChatPage initialized with ID: ${widget.conversationId}");
+    ShadowLog.d('ChatPage initialized with ID: ${widget.conversationId}');
     if (widget.conversationId != null) {
       context.read<ChatBloc>().add(SelectConversation(widget.conversationId!));
     }
@@ -166,7 +166,7 @@ class _ChatPageState extends State<ChatPage> {
       _speechEnabled = await _speechToText.initialize(
         debugLogging: true,
         onError: (e) {
-          debugPrint('STT Error: $e');
+          ShadowLog.w('STT Error: $e');
           if (mounted) {
             setState(() {
               _isListening = false;
@@ -190,10 +190,10 @@ class _ChatPageState extends State<ChatPage> {
           }
         },
         onStatus: (status) {
-          debugPrint('STT Status: $status');
+          ShadowLog.d('STT Status: $status');
           if (status == 'notListening' && mounted) {
             if (_isListening) {
-              debugPrint('STT: Ended without result');
+              ShadowLog.d('STT: Ended without result');
             }
             setState(() => _isListening = false);
           }
@@ -202,12 +202,14 @@ class _ChatPageState extends State<ChatPage> {
 
       if (_speechEnabled) {
         var locales = await _speechToText.locales();
-        debugPrint('STT Locales: ${locales.map((e) => e.localeId).join(', ')}');
+        ShadowLog.d(
+          'STT Locales: ${locales.map((e) => e.localeId).join(', ')}',
+        );
       }
 
       if (mounted) setState(() {});
     } catch (e) {
-      debugPrint('STT Init Exception: $e');
+      ShadowLog.e('STT Init Exception: $e');
     }
   }
 
@@ -324,7 +326,7 @@ class _ChatPageState extends State<ChatPage> {
       try {
         await _speechToText.listen(
           onResult: (result) {
-            debugPrint('STT Result: ${result.recognizedWords}');
+            ShadowLog.d('STT Result: ${result.recognizedWords}');
             setState(() {
               _messageController.text = '$prefix${result.recognizedWords}';
               _messageController.selection = TextSelection.fromPosition(
@@ -342,7 +344,7 @@ class _ChatPageState extends State<ChatPage> {
           localeId: 'en_US',
         );
       } catch (e) {
-        debugPrint('STT Listen Exception: $e');
+        ShadowLog.e('STT Listen Exception: $e');
         setState(() => _isListening = false);
       }
     }
@@ -479,11 +481,13 @@ class _ChatPageState extends State<ChatPage> {
       ),
       centerTitle: true,
       backgroundColor: Colors.transparent,
-      flexibleSpace: ClipRRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Container(
-            color: theme.scaffoldBackgroundColor.withValues(alpha: 0.8),
+      flexibleSpace: Container(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface.withValues(alpha: 0.88),
+          border: Border(
+            bottom: BorderSide(
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.45),
+            ),
           ),
         ),
       ),
@@ -509,6 +513,9 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Widget _buildChatBody(BuildContext context, ThemeData theme) {
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+    final composerHeight = 96 + bottomInset;
+
     return Column(
       children: [
         // Messages list
@@ -729,110 +736,118 @@ class _ChatPageState extends State<ChatPage> {
           },
         ),
 
-        ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surface.withValues(alpha: 0.8),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, -4),
-                  ),
-                ],
+        SizedBox(
+          height: composerHeight,
+          child: Container(
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
               ),
-              child: SafeArea(
-                top: false,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.add_circle_outline_rounded),
-                      iconSize: 28,
-                      color: theme.colorScheme.onSurfaceVariant,
-                      onPressed: () {
-                        HapticFeedback.lightImpact();
-                        _showMediaSheet();
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceContainerHighest
-                              .withValues(alpha: 0.5),
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        child: TextField(
-                          controller: _messageController,
-                          decoration: const InputDecoration(
-                            hintText: 'Message...',
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 12,
-                            ),
-                            isDense: true,
+              border: Border(
+                top: BorderSide(
+                  color: theme.colorScheme.outlineVariant.withValues(
+                    alpha: 0.55,
+                  ),
+                ),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 20,
+                  offset: const Offset(0, -8),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(16, 12, 16, bottomInset + 12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.add_circle_outline_rounded),
+                    iconSize: 28,
+                    color: theme.colorScheme.onSurfaceVariant,
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      _showMediaSheet();
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerHighest
+                            .withValues(alpha: 0.7),
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(
+                          color: theme.colorScheme.outlineVariant.withValues(
+                            alpha: 0.55,
                           ),
-                          minLines: 1,
-                          maxLines: 5,
-                          textInputAction: TextInputAction.newline,
                         ),
                       ),
+                      child: TextField(
+                        controller: _messageController,
+                        decoration: const InputDecoration(
+                          hintText: 'Message...',
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 12,
+                          ),
+                          isDense: true,
+                        ),
+                        minLines: 1,
+                        maxLines: 5,
+                        textInputAction: TextInputAction.newline,
+                      ),
                     ),
-                    const SizedBox(width: 8),
-                    BlocBuilder<ChatBloc, ChatState>(
-                      builder: (context, state) {
-                        return ListenableBuilder(
-                          listenable: _messageController,
-                          builder: (context, _) {
-                            final isTextEmpty = _messageController.text
-                                .trim()
-                                .isEmpty;
-                            final hasAttachment =
-                                state.attachedImagePath != null;
-                            final canSend = !isTextEmpty || hasAttachment;
+                  ),
+                  const SizedBox(width: 8),
+                  BlocBuilder<ChatBloc, ChatState>(
+                    builder: (context, state) {
+                      return ListenableBuilder(
+                        listenable: _messageController,
+                        builder: (context, _) {
+                          final isTextEmpty = _messageController.text
+                              .trim()
+                              .isEmpty;
+                          final hasAttachment = state.attachedImagePath != null;
+                          final canSend = !isTextEmpty || hasAttachment;
 
-                            return IconButton.filled(
-                              onPressed: state.isSending
-                                  ? null
-                                  : (canSend
-                                        ? _sendMessage
-                                        : _handleVoiceRecord),
-                              style: IconButton.styleFrom(
-                                backgroundColor: _isListening
-                                    ? Colors.red
-                                    : theme.colorScheme.primary,
-                                foregroundColor: Colors.white,
-                                fixedSize: const Size(48, 48),
-                              ),
-                              icon: state.isSending
-                                  ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : Icon(
-                                      _isListening
-                                          ? Icons.stop_rounded
-                                          : (canSend
-                                                ? Icons.arrow_upward_rounded
-                                                : Icons.mic_rounded),
+                          return IconButton.filled(
+                            onPressed: state.isSending
+                                ? null
+                                : (canSend ? _sendMessage : _handleVoiceRecord),
+                            style: IconButton.styleFrom(
+                              backgroundColor: _isListening
+                                  ? Colors.red
+                                  : theme.colorScheme.primary,
+                              foregroundColor: Colors.white,
+                              fixedSize: const Size(48, 48),
+                            ),
+                            icon: state.isSending
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
                                     ),
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  ],
-                ),
+                                  )
+                                : Icon(
+                                    _isListening
+                                        ? Icons.stop_rounded
+                                        : (canSend
+                                              ? Icons.arrow_upward_rounded
+                                              : Icons.mic_rounded),
+                                  ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ],
               ),
             ),
           ),
@@ -1134,7 +1149,7 @@ class _MessageBubble extends StatelessWidget {
                       );
                     }
                   } catch (e) {
-                    debugPrint('Save Error: $e');
+                    ShadowLog.e('Save Error: $e');
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text('Failed to save: $e')),
@@ -1169,7 +1184,7 @@ class _MessageBubble extends StatelessWidget {
         : (isDark ? AppColors.darkBubbleAIText : AppColors.lightBubbleAIText);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 14),
       child: Column(
         crossAxisAlignment: isUser
             ? CrossAxisAlignment.end
@@ -1183,11 +1198,13 @@ class _MessageBubble extends StatelessWidget {
             children: [
               if (!isUser) ...[
                 CircleAvatar(
-                  radius: 16,
-                  backgroundColor: theme.colorScheme.primaryContainer,
+                  radius: 14,
+                  backgroundColor: theme.colorScheme.primary.withValues(
+                    alpha: 0.14,
+                  ),
                   child: Icon(
-                    Icons.auto_awesome,
-                    size: 16,
+                    Icons.auto_awesome_rounded,
+                    size: 14,
                     color: theme.colorScheme.primary,
                   ),
                 ),
@@ -1208,18 +1225,26 @@ class _MessageBubble extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: bubbleColor,
                       borderRadius: BorderRadius.only(
-                        topLeft: const Radius.circular(20),
-                        topRight: const Radius.circular(20),
-                        bottomLeft: Radius.circular(isUser ? 20 : 4),
-                        bottomRight: Radius.circular(isUser ? 4 : 20),
+                        topLeft: const Radius.circular(18),
+                        topRight: const Radius.circular(18),
+                        bottomLeft: Radius.circular(isUser ? 18 : 6),
+                        bottomRight: Radius.circular(isUser ? 6 : 18),
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
+                      border: isUser
+                          ? null
+                          : Border.all(
+                              color: theme.colorScheme.outlineVariant
+                                  .withValues(alpha: 0.5),
+                            ),
+                      boxShadow: isUser
+                          ? [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.06),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
+                              ),
+                            ]
+                          : null,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1763,8 +1788,11 @@ class _TypingIndicatorState extends State<_TypingIndicator>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(20),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.45),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

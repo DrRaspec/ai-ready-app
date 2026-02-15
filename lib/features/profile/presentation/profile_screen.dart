@@ -10,6 +10,7 @@ import 'package:ai_chat_bot/features/settings/presentation/widgets/settings_moda
 import 'package:ai_chat_bot/core/routers/route_paths.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_adaptive_kit/flutter_adaptive_kit.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -117,13 +118,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 firstName: firstNameController.text.trim(),
                 lastName: lastNameController.text.trim(),
               );
-              if (mounted) {
-                Navigator.pop(ctx);
-                if (success) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Profile updated')),
-                  );
-                }
+              if (!ctx.mounted) return;
+              Navigator.pop(ctx);
+
+              if (!mounted) return;
+              if (success) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Profile updated')),
+                );
               }
             },
             child: const Text('Save'),
@@ -167,165 +169,315 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  void _showLogoutAllDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Logout From All Devices'),
+        content: const Text(
+          'This will end all active sessions, including this device.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.read<AuthBloc>().add(LogoutAllRequested());
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('Logout All'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Profile'),
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: const BackButton(),
       ),
-      body: BlocBuilder<AuthBloc, AuthState>(
-        builder: (context, authState) {
-          if (authState is Authenticated) {
-            final user = authState.authData;
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              colorScheme.primary.withValues(alpha: 0.1),
+              theme.scaffoldBackgroundColor,
+              theme.scaffoldBackgroundColor,
+            ],
+          ),
+        ),
+        child: BlocConsumer<AuthBloc, AuthState>(
+          listenWhen: (previous, current) => current is Unauthenticated,
+          listener: (context, state) {
+            context.go(RoutePaths.login);
+          },
+          builder: (context, authState) {
+            if (authState is Authenticated) {
+              final user = authState.authData;
 
-            return BlocBuilder<ProfileCubit, ProfileState>(
-              builder: (context, profileState) {
-                // Use profile state name if available, otherwise auth data
-                final displayFirstName =
-                    profileState.firstName ?? user.firstName ?? '';
-                final displayLastName =
-                    profileState.lastName ?? user.lastName ?? '';
-                final fullName = '$displayFirstName $displayLastName'.trim();
-                final initials =
-                    '${displayFirstName.isNotEmpty ? displayFirstName[0] : ''}'
-                            '${displayLastName.isNotEmpty ? displayLastName[0] : ''}'
-                        .toUpperCase();
+              return BlocBuilder<ProfileCubit, ProfileState>(
+                builder: (context, profileState) {
+                  // Use profile state name if available, otherwise auth data
+                  final displayFirstName =
+                      profileState.firstName ?? user.firstName ?? '';
+                  final displayLastName =
+                      profileState.lastName ?? user.lastName ?? '';
+                  final fullName = '$displayFirstName $displayLastName'.trim();
+                  final initials =
+                      '${displayFirstName.isNotEmpty ? displayFirstName[0] : ''}'
+                              '${displayLastName.isNotEmpty ? displayLastName[0] : ''}'
+                          .toUpperCase();
 
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    children: [
-                      // Avatar with edit button
-                      _buildAvatarSection(
-                        profileState.avatarPath,
-                        profileState.profilePictureUrl,
-                        initials,
-                        colorScheme,
-                        profileState.isUploading,
+                  return _buildAdaptiveProfileContent(
+                    profileState: profileState,
+                    theme: theme,
+                    colorScheme: colorScheme,
+                    fullName: fullName,
+                    initials: initials,
+                    email: user.email ?? '',
+                  );
+                },
+              );
+            }
+
+            // Loading State Skeleton
+            return Skeletonizer(
+              enabled: true,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  children: [
+                    Center(
+                      child: CircleAvatar(
+                        radius: 50,
+                        backgroundColor: colorScheme.primaryContainer,
                       ),
-                      const SizedBox(height: 16),
+                    ),
+                    const SizedBox(height: 16),
+                    Container(height: 32, width: 200, color: Colors.white),
+                    const SizedBox(height: 8),
+                    Container(height: 20, width: 150, color: Colors.white),
+                    const SizedBox(height: 64),
+                    Container(
+                      height: 56,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
 
-                      // Name and Email with Edit button
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+  Widget _buildAdaptiveProfileContent({
+    required ProfileState profileState,
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+    required String fullName,
+    required String initials,
+    required String email,
+  }) {
+    final isWideLayout =
+        context.isTablet ||
+        context.isDesktop ||
+        (context.isLandscape && context.screenWidth >= 900);
+
+    final contentPadding = context.adaptiveOrientation<double>(
+      phonePortrait: 24,
+      phoneLandscape: 20,
+      tabletPortrait: 32,
+      tabletLandscape: 36,
+      desktopPortrait: 40,
+      desktopLandscape: 48,
+    );
+    final maxContentWidth = context.adaptive<double>(
+      phone: 700,
+      tablet: 1200,
+      desktop: 1440,
+    );
+
+    final profileHeader = _buildProfileIdentitySection(
+      profileState: profileState,
+      theme: theme,
+      colorScheme: colorScheme,
+      fullName: fullName,
+      initials: initials,
+      email: email,
+    );
+
+    final achievementsSection =
+        BlocBuilder<GamificationCubit, GamificationState>(
+          builder: (context, state) {
+            if (state is GamificationLoaded) {
+              return AchievementsCard(status: state.status);
+            }
+            return const SizedBox.shrink();
+          },
+        );
+
+    final actionsSection = _buildQuickActionsSection(theme, colorScheme);
+    final statsSection = _buildStatsSection(profileState, theme, colorScheme);
+    final logoutButton = _buildLogoutButton(colorScheme);
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(contentPadding),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxContentWidth),
+          child: isWideLayout
+              ? Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 4,
+                      child: Column(
                         children: [
-                          Text(
-                            fullName.isNotEmpty ? fullName : 'User',
-                            style: theme.textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            onPressed: () =>
-                                _showEditProfileDialog(context, profileState),
-                            icon: Icon(
-                              Icons.edit_outlined,
-                              size: 20,
-                              color: colorScheme.primary,
-                            ),
-                            tooltip: 'Edit Profile',
-                            visualDensity: VisualDensity.compact,
-                          ),
+                          profileHeader,
+                          const SizedBox(height: 24),
+                          logoutButton,
                         ],
                       ),
-                      Text(
-                        user.email ?? '',
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-
-                      // Stats Section
-                      _buildStatsSection(profileState, theme, colorScheme),
-                      const SizedBox(height: 24),
-
-                      // Achievements Section
-                      BlocBuilder<GamificationCubit, GamificationState>(
-                        builder: (context, state) {
-                          if (state is GamificationLoaded) {
-                            return AchievementsCard(status: state.status);
-                          }
-                          return const SizedBox.shrink();
-                        },
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Quick Actions
-                      _buildQuickActionsSection(theme, colorScheme),
-                      const SizedBox(height: 32),
-
-                      // Logout Button
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          onPressed: () {
-                            context.read<AuthBloc>().add(LogoutRequested());
-                          },
-                          style: FilledButton.styleFrom(
-                            backgroundColor: colorScheme.error,
-                            foregroundColor: colorScheme.onError,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          icon: const Icon(Icons.logout),
-                          label: const Text(
-                            'Logout',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            );
-          }
-
-          // Loading State Skeleton
-          return Skeletonizer(
-            enabled: true,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                children: [
-                  Center(
-                    child: CircleAvatar(
-                      radius: 50,
-                      backgroundColor: colorScheme.primaryContainer,
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  Container(height: 32, width: 200, color: Colors.white),
-                  const SizedBox(height: 8),
-                  Container(height: 20, width: 150, color: Colors.white),
-                  const SizedBox(height: 64),
-                  Container(
-                    height: 56,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
+                    const SizedBox(width: 24),
+                    Expanded(
+                      flex: 6,
+                      child: Column(
+                        children: [
+                          statsSection,
+                          const SizedBox(height: 24),
+                          achievementsSection,
+                          const SizedBox(height: 24),
+                          actionsSection,
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                )
+              : Column(
+                  children: [
+                    profileHeader,
+                    const SizedBox(height: 32),
+                    statsSection,
+                    const SizedBox(height: 24),
+                    achievementsSection,
+                    const SizedBox(height: 24),
+                    actionsSection,
+                    const SizedBox(height: 32),
+                    logoutButton,
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileIdentitySection({
+    required ProfileState profileState,
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+    required String fullName,
+    required String initials,
+    required String email,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: colorScheme.surface.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.45),
+        ),
+      ),
+      child: Column(
+        children: [
+          _buildAvatarSection(
+            profileState.avatarPath,
+            profileState.profilePictureUrl,
+            initials,
+            colorScheme,
+            profileState.isUploading,
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            alignment: WrapAlignment.center,
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              Text(
+                fullName.isNotEmpty ? fullName : 'User',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
+              IconButton(
+                onPressed: () => _showEditProfileDialog(context, profileState),
+                icon: Icon(
+                  Icons.edit_outlined,
+                  size: 20,
+                  color: colorScheme.primary,
+                ),
+                tooltip: 'Edit Profile',
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
+          ),
+          Text(
+            email,
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: colorScheme.onSurfaceVariant,
             ),
-          );
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLogoutButton(ColorScheme colorScheme) {
+    return SizedBox(
+      width: double.infinity,
+      child: FilledButton.icon(
+        onPressed: () {
+          context.read<AuthBloc>().add(LogoutRequested());
         },
+        style: FilledButton.styleFrom(
+          backgroundColor: colorScheme.error,
+          foregroundColor: colorScheme.onError,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        icon: const Icon(Icons.logout),
+        label: const Text(
+          'Logout',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        ),
       ),
     );
   }
@@ -405,8 +557,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(16),
+        color: colorScheme.surface.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.5),
         ),
@@ -466,8 +618,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(16),
+        color: colorScheme.surface.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.5),
         ),
@@ -524,6 +676,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onTap: () => context.push(RoutePaths.sessions),
           ),
           _ActionTile(
+            icon: Icons.logout,
+            title: 'Logout All Devices',
+            subtitle: 'End every active session',
+            onTap: _showLogoutAllDialog,
+            isDestructive: true,
+          ),
+          _ActionTile(
             icon: Icons.delete_outline_rounded,
             title: 'Clear Local Data',
             subtitle: 'Reset bookmarks & settings',
@@ -554,9 +713,9 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -606,26 +765,58 @@ class _ActionTile extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final iconColor = isDestructive ? colorScheme.error : colorScheme.primary;
 
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: iconColor.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(8),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Ink(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              color: colorScheme.surfaceContainerHighest.withValues(
+                alpha: 0.38,
+              ),
+              border: Border.all(
+                color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: iconColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: iconColor),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          color: isDestructive ? colorScheme.error : null,
+                        ),
+                      ),
+                      Text(subtitle),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
         ),
-        child: Icon(icon, color: iconColor),
       ),
-      title: Text(
-        title,
-        style: TextStyle(color: isDestructive ? colorScheme.error : null),
-      ),
-      subtitle: Text(subtitle),
-      trailing: Icon(
-        Icons.chevron_right_rounded,
-        color: colorScheme.onSurfaceVariant,
-      ),
-      onTap: onTap,
     );
   }
 }

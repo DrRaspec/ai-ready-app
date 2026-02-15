@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:flutter/material.dart';
+import 'package:shadow_log/shadow_log.dart';
 import 'package:flutter/services.dart';
 
 /// Service for managing iOS alternate app icons
@@ -58,7 +58,7 @@ class AppIconService {
       });
       return true;
     } catch (e) {
-      debugPrint('Failed to set app icon: $e');
+      ShadowLog.e('Failed to set app icon: $e');
       return false;
     }
   }

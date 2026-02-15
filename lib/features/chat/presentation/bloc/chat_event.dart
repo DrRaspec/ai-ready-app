@@ -165,9 +165,14 @@ class RegenerateMessage extends ChatEvent {
 class RateMessage extends ChatEvent {
   final String messageId;
   final bool isPositive;
-  const RateMessage(this.messageId, {required this.isPositive});
+  final String? feedbackText;
+  const RateMessage(
+    this.messageId, {
+    required this.isPositive,
+    this.feedbackText,
+  });
   @override
-  List<Object?> get props => [messageId, isPositive];
+  List<Object?> get props => [messageId, isPositive, feedbackText];
 }
 
 class GetSummary extends ChatEvent {

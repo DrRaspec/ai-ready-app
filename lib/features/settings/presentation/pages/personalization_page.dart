@@ -55,8 +55,10 @@ class _PersonalizationViewState extends State<_PersonalizationView> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Personalization'),
         actions: [
@@ -106,148 +108,176 @@ class _PersonalizationViewState extends State<_PersonalizationView> {
           ),
         ],
       ),
-      body: BlocConsumer<PersonalizationCubit, PersonalizationState>(
-        listener: (context, state) {
-          if (!state.isLoading && state.preferences != null) {
-            _systemInstructionsController.text =
-                state.preferences!.systemInstructions ?? '';
-            _preferredNameController.text =
-                state.preferences!.preferredName ?? '';
-            _preferredToneController.text =
-                state.preferences!.preferredTone ?? '';
-            _preferredLanguageController.text =
-                state.preferences!.preferredLanguage ?? '';
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              colorScheme.primary.withValues(alpha: 0.1),
+              theme.scaffoldBackgroundColor,
+              theme.scaffoldBackgroundColor,
+            ],
+          ),
+        ),
+        child: BlocConsumer<PersonalizationCubit, PersonalizationState>(
+          listener: (context, state) {
+            if (!state.isLoading && state.preferences != null) {
+              _systemInstructionsController.text =
+                  state.preferences!.systemInstructions ?? '';
+              _preferredNameController.text =
+                  state.preferences!.preferredName ?? '';
+              _preferredToneController.text =
+                  state.preferences!.preferredTone ?? '';
+              _preferredLanguageController.text =
+                  state.preferences!.preferredLanguage ?? '';
 
-            setState(() {
-              _streamResponse = state.preferences!.streamResponse ?? true;
-              _hapticFeedback = state.preferences!.hapticFeedback ?? true;
+              setState(() {
+                _streamResponse = state.preferences!.streamResponse ?? true;
+                _hapticFeedback = state.preferences!.hapticFeedback ?? true;
+                if (state.preferences!.themeMode != null) {
+                  _themeMode = state.preferences!.themeMode!;
+                }
+                _defaultModel = state.preferences!.model;
+              });
+
+              // Sync with global ThemeCubit only if the theme is explicitly provided by the server
               if (state.preferences!.themeMode != null) {
-                _themeMode = state.preferences!.themeMode!;
-              }
-              _defaultModel = state.preferences!.model;
-            });
-
-            // Sync with global ThemeCubit only if the theme is explicitly provided by the server
-            if (state.preferences!.themeMode != null) {
-              final themeCubit = context.read<ThemeCubit>();
-              if (state.preferences!.themeMode == 'light') {
-                themeCubit.light();
-              } else if (state.preferences!.themeMode == 'dark') {
-                themeCubit.dark();
-              } else if (state.preferences!.themeMode == 'system') {
-                themeCubit.system();
+                final themeCubit = context.read<ThemeCubit>();
+                if (state.preferences!.themeMode == 'light') {
+                  themeCubit.light();
+                } else if (state.preferences!.themeMode == 'dark') {
+                  themeCubit.dark();
+                } else if (state.preferences!.themeMode == 'system') {
+                  themeCubit.system();
+                }
               }
             }
-          }
-        },
-        builder: (context, state) {
-          if (state.isLoading && state.preferences == null) {
-            return const Skeletonizer(
-              enabled: true,
-              child: Center(child: CircularProgressIndicator()),
+          },
+          builder: (context, state) {
+            if (state.isLoading && state.preferences == null) {
+              return const Skeletonizer(
+                enabled: true,
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+
+            return ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                _buildSectionCard(
+                  context,
+                  title: 'AI Persona',
+                  child: Column(
+                    children: [
+                      TextField(
+                        controller: _preferredNameController,
+                        decoration: const InputDecoration(
+                          labelText: 'Preferred Name',
+                          hintText: 'How should the AI address you?',
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: _preferredToneController,
+                        decoration: const InputDecoration(
+                          labelText: 'Preferred Tone',
+                          hintText: 'e.g., Friendly, Professional, Concise',
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: _preferredLanguageController,
+                        decoration: const InputDecoration(
+                          labelText: 'Preferred Language',
+                          hintText: 'e.g., English, Thai, etc.',
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: _systemInstructionsController,
+                        decoration: const InputDecoration(
+                          labelText: 'System Instructions',
+                          hintText:
+                              'How should the AI behave? (e.g., "Be concise", "Act like a pirate")',
+                          alignLabelWithHint: true,
+                        ),
+                        maxLines: 4,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                _buildSectionCard(
+                  context,
+                  title: 'Chat Experience',
+                  child: Column(
+                    children: [
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Stream Responses'),
+                        subtitle: const Text(
+                          'Type out messages as they generate',
+                        ),
+                        value: _streamResponse,
+                        onChanged: (val) =>
+                            setState(() => _streamResponse = val),
+                      ),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Haptic Feedback'),
+                        subtitle: const Text('Vibrate on interactions'),
+                        value: _hapticFeedback,
+                        onChanged: (val) =>
+                            setState(() => _hapticFeedback = val),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                _buildSectionCard(
+                  context,
+                  title: 'Appearance',
+                  child: SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(
+                        value: 'system',
+                        label: Text('System'),
+                        icon: Icon(Icons.brightness_auto),
+                      ),
+                      ButtonSegment(
+                        value: 'light',
+                        label: Text('Light'),
+                        icon: Icon(Icons.light_mode),
+                      ),
+                      ButtonSegment(
+                        value: 'dark',
+                        label: Text('Dark'),
+                        icon: Icon(Icons.dark_mode),
+                      ),
+                    ],
+                    selected: {_themeMode},
+                    onSelectionChanged: (Set<String> newSelection) {
+                      final newMode = newSelection.first;
+                      setState(() {
+                        _themeMode = newMode;
+                      });
+                      // Immediate feedback
+                      final themeCubit = context.read<ThemeCubit>();
+                      if (newMode == 'light') {
+                        themeCubit.light();
+                      } else if (newMode == 'dark') {
+                        themeCubit.dark();
+                      } else {
+                        themeCubit.system();
+                      }
+                    },
+                  ),
+                ),
+              ],
             );
-          }
-
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              _buildSectionHeader(theme, 'AI Persona'),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _preferredNameController,
-                decoration: const InputDecoration(
-                  labelText: 'Preferred Name',
-                  hintText: 'How should the AI address you?',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _preferredToneController,
-                decoration: const InputDecoration(
-                  labelText: 'Preferred Tone',
-                  hintText: 'e.g., Friendly, Professional, Concise',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _preferredLanguageController,
-                decoration: const InputDecoration(
-                  labelText: 'Preferred Language',
-                  hintText: 'e.g., English, Thai, etc.',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _systemInstructionsController,
-                decoration: const InputDecoration(
-                  labelText: 'System Instructions',
-                  hintText:
-                      'How should the AI behave? (e.g., "Be concise", "Act like a pirate")',
-                  border: OutlineInputBorder(),
-                  alignLabelWithHint: true,
-                ),
-                maxLines: 4,
-              ),
-              const SizedBox(height: 24),
-
-              _buildSectionHeader(theme, 'Chat Experience'),
-              SwitchListTile(
-                title: const Text('Stream Responses'),
-                subtitle: const Text('Type out messages as they generate'),
-                value: _streamResponse,
-                onChanged: (val) => setState(() => _streamResponse = val),
-              ),
-              SwitchListTile(
-                title: const Text('Haptic Feedback'),
-                subtitle: const Text('Vibrate on interactions'),
-                value: _hapticFeedback,
-                onChanged: (val) => setState(() => _hapticFeedback = val),
-              ),
-              const SizedBox(height: 24),
-
-              _buildSectionHeader(theme, 'Appearance'),
-              const SizedBox(height: 8),
-              SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(
-                    value: 'system',
-                    label: Text('System'),
-                    icon: Icon(Icons.brightness_auto),
-                  ),
-                  ButtonSegment(
-                    value: 'light',
-                    label: Text('Light'),
-                    icon: Icon(Icons.light_mode),
-                  ),
-                  ButtonSegment(
-                    value: 'dark',
-                    label: Text('Dark'),
-                    icon: Icon(Icons.dark_mode),
-                  ),
-                ],
-                selected: {_themeMode},
-                onSelectionChanged: (Set<String> newSelection) {
-                  final newMode = newSelection.first;
-                  setState(() {
-                    _themeMode = newMode;
-                  });
-                  // Immediate feedback
-                  final themeCubit = context.read<ThemeCubit>();
-                  if (newMode == 'light') {
-                    themeCubit.light();
-                  } else if (newMode == 'dark') {
-                    themeCubit.dark();
-                  } else {
-                    themeCubit.system();
-                  }
-                },
-              ),
-            ],
-          );
-        },
+          },
+        ),
       ),
     );
   }
@@ -258,6 +288,33 @@ class _PersonalizationViewState extends State<_PersonalizationView> {
       style: theme.textTheme.titleMedium?.copyWith(
         fontWeight: FontWeight.bold,
         color: theme.colorScheme.primary,
+      ),
+    );
+  }
+
+  Widget _buildSectionCard(
+    BuildContext context, {
+    required String title,
+    required Widget child,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.surface.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionHeader(theme, title),
+          const SizedBox(height: 10),
+          child,
+        ],
       ),
     );
   }

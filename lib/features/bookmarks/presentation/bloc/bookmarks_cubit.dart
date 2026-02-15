@@ -1,9 +1,14 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:ai_chat_bot/core/storage/local_storage.dart';
+import 'package:ai_chat_bot/features/favorites/data/favorites_repository.dart';
 import 'bookmarks_state.dart';
 
 class BookmarksCubit extends Cubit<BookmarksState> {
-  BookmarksCubit() : super(const BookmarksState());
+  final FavoritesRepository? _favoritesRepository;
+
+  BookmarksCubit({FavoritesRepository? favoritesRepository})
+    : _favoritesRepository = favoritesRepository,
+      super(const BookmarksState());
 
   /// Load all bookmarks from local storage
   void loadBookmarks() {
@@ -46,6 +51,7 @@ class BookmarksCubit extends Cubit<BookmarksState> {
       emit(
         state.copyWith(bookmarks: updatedBookmarks, bookmarkedIds: updatedIds),
       );
+      await _syncRemoteToggle(messageId);
     } else {
       // Add bookmark
       await LocalStorage.addBookmark(
@@ -71,6 +77,7 @@ class BookmarksCubit extends Cubit<BookmarksState> {
           bookmarkedIds: {...state.bookmarkedIds, messageId},
         ),
       );
+      await _syncRemoteToggle(messageId, note: conversationTitle);
     }
   }
 
@@ -91,5 +98,18 @@ class BookmarksCubit extends Cubit<BookmarksState> {
     emit(
       state.copyWith(bookmarks: updatedBookmarks, bookmarkedIds: updatedIds),
     );
+    await _syncRemoteToggle(messageId);
+  }
+
+  Future<void> _syncRemoteToggle(String messageId, {String? note}) async {
+    try {
+      await _favoritesRepository?.toggleFavorite(
+        targetType: 'MESSAGE',
+        targetId: messageId,
+        note: note,
+      );
+    } catch (_) {
+      // Keep local bookmark behavior even when remote sync fails.
+    }
   }
 }

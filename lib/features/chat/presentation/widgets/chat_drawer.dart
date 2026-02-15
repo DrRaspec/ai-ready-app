@@ -36,13 +36,21 @@ class _ChatDrawerState extends State<ChatDrawer> {
     final colorScheme = theme.colorScheme;
 
     return Drawer(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: colorScheme.surface,
       child: SafeArea(
         child: Column(
           children: [
             // Header with Search and New Chat
-            Padding(
+            Container(
               padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: colorScheme.surface,
+                border: Border(
+                  bottom: BorderSide(
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
               child: Column(
                 children: [
                   // Search Bar
@@ -64,11 +72,15 @@ class _ChatDrawerState extends State<ChatDrawer> {
                       ),
                       filled: true,
                       fillColor: colorScheme.surfaceContainerHighest.withValues(
-                        alpha: 0.3,
+                        alpha: 0.65,
                       ),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(
+                          color: colorScheme.outlineVariant.withValues(
+                            alpha: 0.45,
+                          ),
+                        ),
                       ),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 16,
@@ -104,14 +116,18 @@ class _ChatDrawerState extends State<ChatDrawer> {
                           decoration: BoxDecoration(
                             color: isImageMode
                                 ? colorScheme.primaryContainer.withValues(
-                                    alpha: 0.4,
+                                    alpha: 0.32,
                                   )
                                 : colorScheme.surfaceContainerHighest
-                                      .withValues(alpha: 0.3),
-                            borderRadius: BorderRadius.circular(12),
-                            border: isImageMode
-                                ? Border.all(color: colorScheme.primary)
-                                : null,
+                                      .withValues(alpha: 0.58),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: isImageMode
+                                  ? colorScheme.primary.withValues(alpha: 0.5)
+                                  : colorScheme.outlineVariant.withValues(
+                                      alpha: 0.45,
+                                    ),
+                            ),
                           ),
                           child: Row(
                             children: [
@@ -158,9 +174,14 @@ class _ChatDrawerState extends State<ChatDrawer> {
                       ),
                       decoration: BoxDecoration(
                         color: colorScheme.surfaceContainerHighest.withValues(
-                          alpha: 0.3,
+                          alpha: 0.58,
                         ),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: colorScheme.outlineVariant.withValues(
+                            alpha: 0.45,
+                          ),
+                        ),
                       ),
                       child: Row(
                         children: [
@@ -190,8 +211,6 @@ class _ChatDrawerState extends State<ChatDrawer> {
 
                   const SizedBox(height: 12),
 
-                  const SizedBox(height: 12),
-
                   // New Conversation Button
                   SizedBox(
                     width: double.infinity,
@@ -205,7 +224,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
                         ),
                       ),
                     ),
@@ -319,9 +338,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
                   }
 
                   return Container(
-                    decoration: BoxDecoration(
-                      color: theme.scaffoldBackgroundColor,
-                    ),
+                    decoration: BoxDecoration(color: colorScheme.surface),
                     child: NotificationListener<ScrollNotification>(
                       onNotification: (scrollInfo) {
                         if (!state.isConversationsLoading &&
@@ -365,9 +382,18 @@ class _ChatDrawerState extends State<ChatDrawer> {
                               conversation.id == state.currentConversationId;
 
                           return ListTile(
+                            selected: isSelected,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            tileColor: isSelected
+                                ? colorScheme.primaryContainer.withValues(
+                                    alpha: 0.3,
+                                  )
+                                : Colors.transparent,
                             dense: true,
                             contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 24,
+                              horizontal: 16,
                             ),
                             title: Text(
                               conversation.title ?? 'New Chat',
@@ -423,7 +449,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
             // Footer (Profile)
             ListTile(
               contentPadding: const EdgeInsets.symmetric(
-                horizontal: 24,
+                horizontal: 16,
                 vertical: 8,
               ),
               leading: CircleAvatar(
@@ -585,8 +611,13 @@ class _ChatDrawerState extends State<ChatDrawer> {
             decoration: BoxDecoration(
               color: isSelected
                   ? colorScheme.primary
-                  : colorScheme.surfaceContainerHighest,
+                  : colorScheme.surfaceContainerHighest.withValues(alpha: 0.7),
               borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isSelected
+                    ? colorScheme.primary
+                    : colorScheme.outlineVariant.withValues(alpha: 0.5),
+              ),
             ),
             child: Text(
               label,
@@ -745,10 +776,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
             onPressed: () {
               if (controller.text.isNotEmpty) {
                 final folderCubit = context.read<FolderCubit>();
-                folderCubit.createFolder(
-                  controller.text,
-                  'blue',
-                ); // Default color
+                folderCubit.createFolder(controller.text);
               }
               Navigator.pop(ctx);
             },

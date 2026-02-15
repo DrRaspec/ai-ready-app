@@ -6,6 +6,8 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+enum _BookmarkRoleFilter { all, assistant, user }
+
 class BookmarksPage extends StatefulWidget {
   const BookmarksPage({super.key});
 
@@ -15,6 +17,10 @@ class BookmarksPage extends StatefulWidget {
 
 class _BookmarksPageState extends State<BookmarksPage> {
   String _searchQuery = '';
+  _BookmarkRoleFilter _roleFilter = _BookmarkRoleFilter.all;
+
+  bool get _hasActiveFilters =>
+      _searchQuery.isNotEmpty || _roleFilter != _BookmarkRoleFilter.all;
 
   @override
   void initState() {
@@ -28,9 +34,21 @@ class _BookmarksPageState extends State<BookmarksPage> {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Bookmarks'),
         actions: [
+          if (_hasActiveFilters)
+            IconButton(
+              icon: const Icon(Icons.filter_alt_off_rounded),
+              tooltip: 'Clear filters',
+              onPressed: () {
+                setState(() {
+                  _searchQuery = '';
+                  _roleFilter = _BookmarkRoleFilter.all;
+                });
+              },
+            ),
           IconButton(
             icon: const Icon(Icons.search_rounded),
             onPressed: () {
@@ -46,98 +64,283 @@ class _BookmarksPageState extends State<BookmarksPage> {
           ),
         ],
       ),
-      body: BlocBuilder<BookmarksCubit, BookmarksState>(
-        builder: (context, state) {
-          if (state.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              colorScheme.primary.withValues(alpha: 0.1),
+              theme.scaffoldBackgroundColor,
+              theme.scaffoldBackgroundColor,
+            ],
+          ),
+        ),
+        child: BlocBuilder<BookmarksCubit, BookmarksState>(
+          builder: (context, state) {
+            if (state.isLoading) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-          final bookmarks = _searchQuery.isEmpty
-              ? state.bookmarks
-              : state.bookmarks
-                    .where(
-                      (b) =>
-                          b.content.toLowerCase().contains(
-                            _searchQuery.toLowerCase(),
-                          ) ||
-                          (b.conversationTitle?.toLowerCase().contains(
-                                _searchQuery.toLowerCase(),
-                              ) ??
-                              false),
-                    )
-                    .toList();
+            final filteredBookmarks = _applyFilters(state.bookmarks);
+            final sections = _groupByDate(filteredBookmarks);
 
-          if (bookmarks.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: colorScheme.primaryContainer.withValues(
-                        alpha: 0.3,
-                      ),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.bookmark_outline_rounded,
-                      size: 64,
-                      color: colorScheme.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    _searchQuery.isEmpty
-                        ? 'No bookmarks yet'
-                        : 'No matching bookmarks',
-                    style: theme.textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _searchQuery.isEmpty
-                        ? 'Long-press messages in chat to bookmark them'
-                        : 'Try a different search term',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                  child: _buildFilterChips(state.bookmarks),
+                ),
+                Expanded(
+                  child: filteredBookmarks.isEmpty
+                      ? _buildEmptyState(theme, colorScheme)
+                      : AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 220),
+                          child: ListView(
+                            key: ValueKey(
+                              '${_searchQuery}_${_roleFilter.name}_${filteredBookmarks.length}',
+                            ),
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                            children: [
+                              for (final section in sections) ...[
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    4,
+                                    6,
+                                    4,
+                                    8,
+                                  ),
+                                  child: Text(
+                                    section.title,
+                                    style: theme.textTheme.titleSmall?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ),
+                                for (final bookmark in section.items)
+                                  Dismissible(
+                                    key: ValueKey(bookmark.id),
+                                    direction: DismissDirection.endToStart,
+                                    background: Container(
+                                      margin: const EdgeInsets.only(bottom: 12),
+                                      alignment: Alignment.centerRight,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 20,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: colorScheme.errorContainer,
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: Icon(
+                                        Icons.delete_outline_rounded,
+                                        color: colorScheme.onErrorContainer,
+                                      ),
+                                    ),
+                                    onDismissed: (_) =>
+                                        _removeBookmarkWithUndo(bookmark),
+                                    child: _BookmarkCard(
+                                      bookmark: bookmark,
+                                      onRemove: () =>
+                                          _removeBookmarkWithUndo(bookmark),
+                                      onTap: () {
+                                        if (bookmark.conversationId != null) {
+                                          context.push(
+                                            '/chat',
+                                            extra: {
+                                              'conversationId':
+                                                  bookmark.conversationId,
+                                              'messageId': bookmark.id,
+                                            },
+                                          );
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                const SizedBox(height: 2),
+                              ],
+                            ],
+                          ),
+                        ),
+                ),
+              ],
             );
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: bookmarks.length,
-            itemBuilder: (context, index) {
-              final bookmark = bookmarks[index];
-              return _BookmarkCard(
-                bookmark: bookmark,
-                onRemove: () {
-                  context.read<BookmarksCubit>().removeBookmark(bookmark.id);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Bookmark removed')),
-                  );
-                },
-                onTap: () {
-                  if (bookmark.conversationId != null) {
-                    context.push(
-                      '/chat',
-                      extra: {
-                        'conversationId': bookmark.conversationId,
-                        'messageId': bookmark.id,
-                      },
-                    );
-                  }
-                },
-              );
-            },
-          );
-        },
+          },
+        ),
       ),
     );
   }
+
+  List<BookmarkItem> _applyFilters(List<BookmarkItem> bookmarks) {
+    Iterable<BookmarkItem> filtered = bookmarks;
+
+    if (_roleFilter == _BookmarkRoleFilter.assistant) {
+      filtered = filtered.where((b) => b.role == 'assistant');
+    } else if (_roleFilter == _BookmarkRoleFilter.user) {
+      filtered = filtered.where((b) => b.role != 'assistant');
+    }
+
+    if (_searchQuery.isNotEmpty) {
+      final query = _searchQuery.toLowerCase();
+      filtered = filtered.where(
+        (b) =>
+            b.content.toLowerCase().contains(query) ||
+            (b.conversationTitle?.toLowerCase().contains(query) ?? false),
+      );
+    }
+
+    final filteredList = filtered.toList()
+      ..sort((a, b) => b.bookmarkedAt.compareTo(a.bookmarkedAt));
+    return filteredList;
+  }
+
+  List<_BookmarkSection> _groupByDate(List<BookmarkItem> bookmarks) {
+    final today = <BookmarkItem>[];
+    final thisWeek = <BookmarkItem>[];
+    final thisMonth = <BookmarkItem>[];
+    final earlier = <BookmarkItem>[];
+
+    for (final bookmark in bookmarks) {
+      final daysOld = _daysOld(bookmark.bookmarkedAt);
+      if (daysOld == 0) {
+        today.add(bookmark);
+      } else if (daysOld <= 7) {
+        thisWeek.add(bookmark);
+      } else if (daysOld <= 30) {
+        thisMonth.add(bookmark);
+      } else {
+        earlier.add(bookmark);
+      }
+    }
+
+    final sections = <_BookmarkSection>[
+      _BookmarkSection(title: 'Today', items: today),
+      _BookmarkSection(title: 'This Week', items: thisWeek),
+      _BookmarkSection(title: 'This Month', items: thisMonth),
+      _BookmarkSection(title: 'Earlier', items: earlier),
+    ];
+
+    return sections.where((section) => section.items.isNotEmpty).toList();
+  }
+
+  int _daysOld(DateTime dateTime) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final date = DateTime(dateTime.year, dateTime.month, dateTime.day);
+    final days = today.difference(date).inDays;
+    return days < 0 ? 0 : days;
+  }
+
+  Widget _buildFilterChips(List<BookmarkItem> allBookmarks) {
+    final assistantCount = allBookmarks
+        .where((b) => b.role == 'assistant')
+        .length;
+    final userCount = allBookmarks.length - assistantCount;
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          ChoiceChip(
+            label: Text('All (${allBookmarks.length})'),
+            selected: _roleFilter == _BookmarkRoleFilter.all,
+            showCheckmark: false,
+            onSelected: (_) {
+              setState(() => _roleFilter = _BookmarkRoleFilter.all);
+            },
+          ),
+          const SizedBox(width: 8),
+          ChoiceChip(
+            label: Text('AI ($assistantCount)'),
+            selected: _roleFilter == _BookmarkRoleFilter.assistant,
+            showCheckmark: false,
+            onSelected: (_) {
+              setState(() => _roleFilter = _BookmarkRoleFilter.assistant);
+            },
+          ),
+          const SizedBox(width: 8),
+          ChoiceChip(
+            label: Text('You ($userCount)'),
+            selected: _roleFilter == _BookmarkRoleFilter.user,
+            showCheckmark: false,
+            onSelected: (_) {
+              setState(() => _roleFilter = _BookmarkRoleFilter.user);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(ThemeData theme, ColorScheme colorScheme) {
+    final isFiltered = _hasActiveFilters;
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: colorScheme.primaryContainer.withValues(alpha: 0.3),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.bookmark_outline_rounded,
+              size: 64,
+              color: colorScheme.primary,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            isFiltered ? 'No matching bookmarks' : 'No bookmarks yet',
+            style: theme.textTheme.titleLarge,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            isFiltered
+                ? 'Try changing your search or filter'
+                : 'Long-press messages in chat to bookmark them',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _removeBookmarkWithUndo(BookmarkItem bookmark) {
+    final bookmarksCubit = context.read<BookmarksCubit>();
+    bookmarksCubit.removeBookmark(bookmark.id);
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: const Text('Bookmark removed'),
+          action: SnackBarAction(
+            label: 'Undo',
+            onPressed: () {
+              bookmarksCubit.toggleBookmark(
+                messageId: bookmark.id,
+                content: bookmark.content,
+                role: bookmark.role,
+                conversationId: bookmark.conversationId,
+                conversationTitle: bookmark.conversationTitle,
+              );
+            },
+          ),
+        ),
+      );
+  }
+}
+
+class _BookmarkSection {
+  final String title;
+  final List<BookmarkItem> items;
+
+  const _BookmarkSection({required this.title, required this.items});
 }
 
 class _BookmarkCard extends StatelessWidget {
@@ -156,26 +359,25 @@ class _BookmarkCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isAI = bookmark.role == 'assistant';
-    final dateFormat = DateFormat('MMM d, yyyy • HH:mm');
+    final dateFormat = DateFormat('MMM d, yyyy - HH:mm');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(16),
+        color: colorScheme.surface.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+          color: colorScheme.outlineVariant.withValues(alpha: 0.48),
         ),
       ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
               Row(
                 children: [
                   Container(
@@ -226,8 +428,6 @@ class _BookmarkCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
-
-              // Content
               ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 150),
                 child: SingleChildScrollView(
@@ -245,8 +445,6 @@ class _BookmarkCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-
-              // Footer
               Row(
                 children: [
                   Icon(
