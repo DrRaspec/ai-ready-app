@@ -383,7 +383,9 @@ class _ChatPageState extends State<ChatPage> {
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final isWide = constraints.maxWidth > 800;
+            final media = MediaQuery.of(context);
+            final isTabletLike = media.size.shortestSide >= 600;
+            final isWide = isTabletLike && constraints.maxWidth > 800;
 
             if (isWide) {
               return Scaffold(

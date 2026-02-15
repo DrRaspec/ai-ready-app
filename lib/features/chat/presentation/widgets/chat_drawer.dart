@@ -34,6 +34,10 @@ class _ChatDrawerState extends State<ChatDrawer> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final media = MediaQuery.of(context);
+    final isCompactHeight = media.size.height < 500;
+    final headerPadding = isCompactHeight ? 12.0 : 16.0;
+    final sectionGap = isCompactHeight ? 8.0 : 12.0;
 
     return Drawer(
       backgroundColor: colorScheme.surface,
@@ -42,7 +46,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
           children: [
             // Header with Search and New Chat
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(headerPadding),
               decoration: BoxDecoration(
                 color: colorScheme.surface,
                 border: Border(
@@ -84,7 +88,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
                       ),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 16,
-                        vertical: 12,
+                        vertical: 10,
                       ),
                       isDense: true,
                     ),
@@ -92,124 +96,89 @@ class _ChatDrawerState extends State<ChatDrawer> {
                       context.read<ChatBloc>().add(SearchConversations(value));
                     },
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: isCompactHeight ? 10 : 16),
 
-                  // Images Menu Item (like ChatGPT mobile app)
-                  BlocBuilder<ChatBloc, ChatState>(
-                    builder: (context, state) {
-                      final isImageMode =
-                          state.chatMode == ChatMode.imageGeneration;
-                      return InkWell(
-                        onTap: () {
-                          context.read<ChatBloc>().add(
-                            const SetChatMode(ChatMode.imageGeneration),
-                          );
-                          context.read<ChatBloc>().add(const NewConversation());
-                          context.pop();
-                        },
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isImageMode
-                                ? colorScheme.primaryContainer.withValues(
-                                    alpha: 0.32,
-                                  )
-                                : colorScheme.surfaceContainerHighest
-                                      .withValues(alpha: 0.58),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: isImageMode
-                                  ? colorScheme.primary.withValues(alpha: 0.5)
-                                  : colorScheme.outlineVariant.withValues(
-                                      alpha: 0.45,
-                                    ),
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: colorScheme.primary.withValues(
-                                    alpha: 0.15,
-                                  ),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Icon(
-                                  Icons.auto_awesome,
-                                  size: 20,
-                                  color: colorScheme.primary,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                'Images',
-                                style: theme.textTheme.bodyLarge?.copyWith(
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
+                  if (isCompactHeight)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: BlocBuilder<ChatBloc, ChatState>(
+                            builder: (context, state) {
+                              final isImageMode =
+                                  state.chatMode == ChatMode.imageGeneration;
+                              return _buildQuickActionTile(
+                                context,
+                                icon: Icons.auto_awesome,
+                                label: 'Images',
+                                compact: true,
+                                isSelected: isImageMode,
+                                accentColor: colorScheme.primary,
+                                onTap: () {
+                                  context.read<ChatBloc>().add(
+                                    const SetChatMode(ChatMode.imageGeneration),
+                                  );
+                                  context.read<ChatBloc>().add(
+                                    const NewConversation(),
+                                  );
+                                  context.pop();
+                                },
+                              );
+                            },
                           ),
                         ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Prompt Library Item
-                  InkWell(
-                    onTap: () {
-                      context.pop();
-                      context.push('/prompts');
-                    },
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerHighest.withValues(
-                          alpha: 0.58,
-                        ),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: colorScheme.outlineVariant.withValues(
-                            alpha: 0.45,
+                        SizedBox(width: sectionGap),
+                        Expanded(
+                          child: _buildQuickActionTile(
+                            context,
+                            icon: Icons.lightbulb_outline,
+                            label: 'Prompts',
+                            compact: true,
+                            accentColor: Colors.amber,
+                            onTap: () {
+                              context.pop();
+                              context.push('/prompts');
+                            },
                           ),
                         ),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.amber.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(
-                              Icons.lightbulb_outline,
-                              size: 20,
-                              color: Colors.amber,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            'Prompt Library',
-                            style: theme.textTheme.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
+                      ],
+                    )
+                  else ...[
+                    BlocBuilder<ChatBloc, ChatState>(
+                      builder: (context, state) {
+                        final isImageMode =
+                            state.chatMode == ChatMode.imageGeneration;
+                        return _buildQuickActionTile(
+                          context,
+                          icon: Icons.auto_awesome,
+                          label: 'Images',
+                          isSelected: isImageMode,
+                          accentColor: colorScheme.primary,
+                          onTap: () {
+                            context.read<ChatBloc>().add(
+                              const SetChatMode(ChatMode.imageGeneration),
+                            );
+                            context.read<ChatBloc>().add(
+                              const NewConversation(),
+                            );
+                            context.pop();
+                          },
+                        );
+                      },
                     ),
-                  ),
+                    SizedBox(height: sectionGap),
+                    _buildQuickActionTile(
+                      context,
+                      icon: Icons.lightbulb_outline,
+                      label: 'Prompt Library',
+                      accentColor: Colors.amber,
+                      onTap: () {
+                        context.pop();
+                        context.push('/prompts');
+                      },
+                    ),
+                  ],
 
-                  const SizedBox(height: 12),
+                  SizedBox(height: sectionGap),
 
                   // New Conversation Button
                   SizedBox(
@@ -222,7 +191,9 @@ class _ChatDrawerState extends State<ChatDrawer> {
                       icon: const Icon(Icons.add),
                       label: const Text('New Conversation'),
                       style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        padding: EdgeInsets.symmetric(
+                          vertical: isCompactHeight ? 12 : 16,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
                         ),
@@ -241,11 +212,15 @@ class _ChatDrawerState extends State<ChatDrawer> {
                     buildWhen: (p, c) => p.currentFolderId != c.currentFolderId,
                     builder: (context, chatState) {
                       return Container(
-                        height: 40,
-                        margin: const EdgeInsets.only(bottom: 8),
+                        height: isCompactHeight ? 36 : 40,
+                        margin: EdgeInsets.only(
+                          bottom: isCompactHeight ? 6 : 8,
+                        ),
                         child: ListView(
                           scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isCompactHeight ? 12 : 16,
+                          ),
                           children: [
                             _buildFolderChip(
                               context,
@@ -270,12 +245,12 @@ class _ChatDrawerState extends State<ChatDrawer> {
                             IconButton.filledTonal(
                               icon: const Icon(
                                 Icons.create_new_folder_outlined,
-                                size: 18,
+                                size: 16,
                               ),
                               onPressed: () => _showCreateFolderDialog(context),
-                              constraints: const BoxConstraints.tightFor(
-                                width: 40,
-                                height: 40,
+                              constraints: BoxConstraints.tightFor(
+                                width: isCompactHeight ? 36 : 40,
+                                height: isCompactHeight ? 36 : 40,
                               ),
                               style: IconButton.styleFrom(
                                 padding: EdgeInsets.zero,
@@ -448,9 +423,10 @@ class _ChatDrawerState extends State<ChatDrawer> {
 
             // Footer (Profile)
             ListTile(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 8,
+              dense: isCompactHeight,
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: isCompactHeight ? 12 : 16,
+                vertical: isCompactHeight ? 2 : 8,
               ),
               leading: CircleAvatar(
                 backgroundColor: colorScheme.primary,
@@ -460,16 +436,82 @@ class _ChatDrawerState extends State<ChatDrawer> {
                 ),
               ),
               title: const Text('My Profile'),
-              subtitle: Text(
-                'Basic Account',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
+              subtitle: isCompactHeight
+                  ? null
+                  : Text(
+                      'Basic Account',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
               trailing: const Icon(Icons.settings_outlined),
               onTap: () {
                 context.push('/profile');
               },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickActionTile(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    bool compact = false,
+    bool isSelected = false,
+    Color? accentColor,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final accent = accentColor ?? colorScheme.primary;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 10 : 16,
+          vertical: compact ? 10 : 12,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? colorScheme.primaryContainer.withValues(alpha: 0.32)
+              : colorScheme.surfaceContainerHighest.withValues(alpha: 0.58),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSelected
+                ? colorScheme.primary.withValues(alpha: 0.5)
+                : colorScheme.outlineVariant.withValues(alpha: 0.45),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: compact
+              ? MainAxisAlignment.center
+              : MainAxisAlignment.start,
+          children: [
+            Container(
+              padding: EdgeInsets.all(compact ? 6 : 8),
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, size: compact ? 16 : 20, color: accent),
+            ),
+            SizedBox(width: compact ? 8 : 12),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style:
+                    (compact
+                            ? theme.textTheme.bodyMedium
+                            : theme.textTheme.bodyLarge)
+                        ?.copyWith(fontWeight: FontWeight.w500),
+              ),
             ),
           ],
         ),
