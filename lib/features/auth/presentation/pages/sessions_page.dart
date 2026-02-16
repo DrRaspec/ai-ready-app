@@ -2,6 +2,7 @@ import 'package:ai_chat_bot/core/di/dependency_injection.dart';
 import 'package:ai_chat_bot/features/auth/data/auth_repository.dart';
 import 'package:ai_chat_bot/features/auth/presentation/bloc/sessions_cubit.dart';
 import 'package:ai_chat_bot/features/auth/data/models/session.dart';
+import 'package:ai_chat_bot/core/localization/app_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -30,25 +31,33 @@ class _SessionsView extends StatelessWidget {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Active Sessions'),
+        title: Text(context.t.activeSessions),
         centerTitle: true,
         actions: [
           IconButton(
             icon: Icon(Icons.logout, color: colorScheme.error),
-            tooltip: 'Terminate All Others',
+            tooltip: context.t.tr('Terminate All Others', 'បញ្ចប់សម័យផ្សេងទាំងអស់'),
             onPressed: () {
               final sessionsCubit = context.read<SessionsCubit>();
               showDialog(
                 context: context,
                 builder: (dialogContext) => AlertDialog(
-                  title: const Text('Terminate All Other Sessions?'),
-                  content: const Text(
-                    'Are you sure you want to log out from all other devices?',
+                  title: Text(
+                    context.t.tr(
+                      'Terminate All Other Sessions?',
+                      'បញ្ចប់សម័យឧបករណ៍ផ្សេងទាំងអស់?',
+                    ),
+                  ),
+                  content: Text(
+                    context.t.tr(
+                      'Are you sure you want to log out from all other devices?',
+                      'តើអ្នកប្រាកដថាចង់ចាកចេញពីឧបករណ៍ផ្សេងទាំងអស់មែនទេ?',
+                    ),
                   ),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(dialogContext),
-                      child: const Text('Cancel'),
+                      child: Text(context.t.cancel),
                     ),
                     TextButton(
                       onPressed: () {
@@ -58,7 +67,7 @@ class _SessionsView extends StatelessWidget {
                       style: TextButton.styleFrom(
                         foregroundColor: colorScheme.error,
                       ),
-                      child: const Text('Terminate All'),
+                      child: Text(context.t.tr('Terminate All', 'បញ្ចប់ទាំងអស់')),
                     ),
                   ],
                 ),
@@ -96,7 +105,7 @@ class _SessionsView extends StatelessWidget {
               if (state.sessions.isEmpty) {
                 return Center(
                   child: Text(
-                    'No active sessions found.',
+                    context.t.tr('No active sessions found.', 'រកមិនឃើញសម័យសកម្មទេ។'),
                     style: theme.textTheme.bodyLarge?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                     ),
@@ -140,7 +149,7 @@ class _SessionTile extends StatelessWidget {
     final dateFormat = DateFormat.yMMMd().add_jm();
     final lastActiveStr = session.lastActive != null
         ? dateFormat.format(session.lastActive!.toLocal())
-        : 'Unknown';
+        : context.t.tr('Unknown', 'មិនស្គាល់');
 
     IconData deviceIcon = Icons.devices;
     final deviceLower = session.deviceInfo.toLowerCase();
@@ -201,7 +210,7 @@ class _SessionTile extends StatelessWidget {
                   ),
                 ),
                 child: Text(
-                  'Current',
+                  context.t.tr('Current', 'ឧបករណ៍នេះ'),
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: colorScheme.primary,
                     fontWeight: FontWeight.bold,
@@ -216,9 +225,9 @@ class _SessionTile extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('IP: ${session.ipAddress}'),
+              Text('${context.t.tr('IP', 'អាសយដ្ឋាន IP')}: ${session.ipAddress}'),
               Text(
-                'Last Active: $lastActiveStr',
+                '${context.t.tr('Last Active', 'សកម្មចុងក្រោយ')}: $lastActiveStr',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
@@ -229,20 +238,23 @@ class _SessionTile extends StatelessWidget {
         trailing: canTerminate
             ? IconButton(
                 icon: Icon(Icons.exit_to_app, color: colorScheme.error),
-                tooltip: 'Terminate Session',
+                tooltip: context.t.tr('Terminate Session', 'បញ្ចប់សម័យ'),
                 onPressed: () {
                   final sessionsCubit = context.read<SessionsCubit>();
                   showDialog(
                     context: context,
                     builder: (dialogContext) => AlertDialog(
-                      title: const Text('Terminate Session?'),
+                      title: Text(context.t.tr('Terminate Session?', 'បញ្ចប់សម័យនេះ?')),
                       content: Text(
-                        'Are you sure you want to log out from "${session.deviceInfo}"?',
+                        context.t.tr(
+                          'Are you sure you want to log out from "${session.deviceInfo}"?',
+                          'តើអ្នកប្រាកដថាចង់ចាកចេញពី "${session.deviceInfo}" មែនទេ?',
+                        ),
                       ),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(dialogContext),
-                          child: const Text('Cancel'),
+                          child: Text(context.t.cancel),
                         ),
                         TextButton(
                           onPressed: () {
@@ -252,7 +264,7 @@ class _SessionTile extends StatelessWidget {
                           style: TextButton.styleFrom(
                             foregroundColor: colorScheme.error,
                           ),
-                          child: const Text('Terminate'),
+                          child: Text(context.t.tr('Terminate', 'បញ្ចប់')),
                         ),
                       ],
                     ),

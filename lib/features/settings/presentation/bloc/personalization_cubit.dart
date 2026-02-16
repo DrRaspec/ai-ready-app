@@ -29,7 +29,10 @@ class PersonalizationCubit extends Cubit<PersonalizationState> {
     }
   }
 
-  Future<void> updatePreferences(UserPreferences newPrefs) async {
+  Future<bool> updatePreferences(
+    UserPreferences newPrefs, {
+    bool showSuccess = true,
+  }) async {
     emit(state.copyWith(isLoading: true, isSuccess: false));
     try {
       final response = await _authRepository.updatePreferences(newPrefs);
@@ -38,9 +41,10 @@ class PersonalizationCubit extends Cubit<PersonalizationState> {
           state.copyWith(
             preferences: response.data,
             isLoading: false,
-            isSuccess: true,
+            isSuccess: showSuccess,
           ),
         );
+        return true;
       } else {
         emit(
           state.copyWith(
@@ -48,9 +52,11 @@ class PersonalizationCubit extends Cubit<PersonalizationState> {
             errorMessage: response.message ?? 'Failed to update preferences',
           ),
         );
+        return false;
       }
     } on ApiException catch (e) {
       emit(state.copyWith(isLoading: false, errorMessage: e.message));
+      return false;
     }
   }
 

@@ -1,10 +1,12 @@
 import 'dart:io';
 import 'package:ai_chat_bot/features/chat/data/models/chat_mode.dart';
+import 'package:ai_chat_bot/core/localization/app_text.dart';
 import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_event.dart';
 import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'photo_picker_sheet.dart';
@@ -19,6 +21,7 @@ class MediaSheet extends StatefulWidget {
 }
 
 class _MediaSheetState extends State<MediaSheet> {
+  final ImagePicker _imagePicker = ImagePicker();
   List<AssetEntity> _images = [];
   bool _isLoadingImages = true;
   bool _hasPermission = false;
@@ -81,6 +84,34 @@ class _MediaSheetState extends State<MediaSheet> {
     }
   }
 
+  Future<void> _captureFromCamera() async {
+    try {
+      final image = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+        maxWidth: 2048,
+        maxHeight: 2048,
+      );
+
+      if (image == null || !mounted) return;
+
+      context.read<ChatBloc>().add(AttachImage(image.path));
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.t.tr(
+              'Failed to open camera: $e',
+              'មិនអាចបើកកាមេរ៉ាបាន: $e',
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -110,7 +141,7 @@ class _MediaSheetState extends State<MediaSheet> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Recent Photos',
+                context.t.tr('Recent Photos', 'រូបភាពថ្មីៗ'),
                 style: Theme.of(
                   context,
                 ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
@@ -140,7 +171,7 @@ class _MediaSheetState extends State<MediaSheet> {
                     ),
                   );
                 },
-                child: const Text('All Photos'),
+                child: Text(context.t.tr('All Photos', 'រូបភាពទាំងអស់')),
               ),
             ],
           ),
@@ -176,13 +207,13 @@ class _MediaSheetState extends State<MediaSheet> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Text('Permission required'),
+                        Text(context.t.tr('Permission required', 'តម្រូវឱ្យមានការអនុញ្ញាត')),
                         TextButton(
                           onPressed: () {
                             PhotoManager.openSetting(); // Open app settings
                             _checkPermissionAndLoadImages(); // Retry after return
                           },
-                          child: const Text('Open Settings'),
+                          child: Text(context.t.tr('Open Settings', 'បើកការកំណត់')),
                         ),
                       ],
                     ),
@@ -211,7 +242,7 @@ class _MediaSheetState extends State<MediaSheet> {
 
           // Chat Modes Header
           Text(
-            'Chat Modes',
+            context.t.tr('Chat Modes', 'របៀបជជែក'),
             style: Theme.of(
               context,
             ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
@@ -234,7 +265,7 @@ class _MediaSheetState extends State<MediaSheet> {
           borderRadius: BorderRadius.circular(12),
         ),
         child: InkWell(
-          onTap: () => Navigator.pop(context),
+          onTap: _captureFromCamera,
           borderRadius: BorderRadius.circular(12),
           child: Icon(
             Icons.camera_alt_outlined,
@@ -329,7 +360,7 @@ class _MediaSheetState extends State<MediaSheet> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        mode.label,
+                        _localizedModeLabel(context, mode),
                         style: theme.textTheme.bodyLarge?.copyWith(
                           fontWeight: isSelected
                               ? FontWeight.bold
@@ -337,7 +368,7 @@ class _MediaSheetState extends State<MediaSheet> {
                         ),
                       ),
                       Text(
-                        mode.systemPrompt,
+                        _localizedModePrompt(context, mode),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall?.copyWith(
@@ -377,6 +408,59 @@ class _MediaSheetState extends State<MediaSheet> {
         return Icons.brush;
       default:
         return Icons.chat_bubble_outline;
+    }
+  }
+
+  String _localizedModeLabel(BuildContext context, ChatMode mode) {
+    switch (mode.id) {
+      case 'general':
+        return context.t.tr('General Assistant', 'ជំនួយការទូទៅ');
+      case 'coding':
+        return context.t.tr('Coding Wizard', 'អ្នកជំនាញកូដ');
+      case 'creative':
+        return context.t.tr('Creative Writer', 'អ្នកនិពន្ធច្នៃប្រឌិត');
+      case 'concise':
+        return context.t.tr('Concise', 'ខ្លីច្បាស់');
+      case 'image_generation':
+        return context.t.tr('Image Generator', 'បង្កើតរូបភាព');
+      case 'image_editing':
+        return context.t.tr('Image Editor', 'កែរូបភាព');
+      default:
+        return mode.label;
+    }
+  }
+
+  String _localizedModePrompt(BuildContext context, ChatMode mode) {
+    switch (mode.id) {
+      case 'general':
+        return context.t.tr('You are a helpful AI assistant.', 'អ្នកជាជំនួយការ AI ដែលមានប្រយោជន៍។');
+      case 'coding':
+        return context.t.tr(
+          'You are an expert software engineer. Provide clean, efficient, and well-documented code.',
+          'អ្នកជាវិស្វករសូហ្វវែរជំនាញ។ សូមផ្តល់កូដស្អាត មានប្រសិទ្ធភាព និងមានឯកសារពន្យល់ល្អ។',
+        );
+      case 'creative':
+        return context.t.tr(
+          'You are a creative writer. Engage in storytelling and imaginative responses.',
+          'អ្នកជាអ្នកនិពន្ធច្នៃប្រឌិត។ សូមឆ្លើយតបបែបរឿងនិទាន និងមានការស្រមើស្រមៃ។',
+        );
+      case 'concise':
+        return context.t.tr(
+          'Be extremely concise. Answer in as few words as possible.',
+          'សូមឆ្លើយឱ្យខ្លីបំផុត។ ប្រើពាក្យតិចបំផុតតាមដែលអាចធ្វើបាន។',
+        );
+      case 'image_generation':
+        return context.t.tr(
+          'Describe the image you want to generate.',
+          'ពិពណ៌នារូបភាពដែលអ្នកចង់បង្កើត។',
+        );
+      case 'image_editing':
+        return context.t.tr(
+          'Describe the edits you want to make to the attached image.',
+          'ពិពណ៌នាការកែប្រែដែលអ្នកចង់ធ្វើលើរូបភាពដែលបានភ្ជាប់។',
+        );
+      default:
+        return mode.systemPrompt;
     }
   }
 }

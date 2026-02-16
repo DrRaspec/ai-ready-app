@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:ai_chat_bot/core/localization/app_text.dart';
 import 'package:ai_chat_bot/core/storage/local_storage.dart';
 import 'package:ai_chat_bot/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:ai_chat_bot/features/profile/presentation/cubit/profile_cubit.dart';
@@ -46,32 +47,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
         imageQuality: 80,
       );
 
-      if (image != null && mounted) {
-        // Upload to server
-        final success = await context.read<ProfileCubit>().uploadProfilePicture(
-          image.path,
-        );
-        if (success && mounted) {
-          HapticFeedback.lightImpact();
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Profile picture updated')),
+        if (image != null && mounted) {
+          // Upload to server
+          final success = await context.read<ProfileCubit>().uploadProfilePicture(
+            image.path,
           );
-        } else if (mounted) {
-          // Fallback to local storage if upload fails
-          context.read<ProfileCubit>().setAvatar(image.path);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Saved locally (upload failed)')),
+          if (success && mounted) {
+            HapticFeedback.lightImpact();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(context.t.profilePictureUpdated)),
+            );
+          } else if (mounted) {
+            // Fallback to local storage if upload fails
+            context.read<ProfileCubit>().setAvatar(image.path);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(context.t.savedLocallyUploadFailed)),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(
+            SnackBar(content: Text(context.t.failedToPickImage('$e'))),
           );
         }
       }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to pick image: $e')));
-      }
     }
-  }
 
   void _showEditProfileDialog(BuildContext context, ProfileState profileState) {
     final firstNameController = TextEditingController(
@@ -84,24 +87,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Edit Profile'),
+        title: Text(context.t.editProfile),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: firstNameController,
-              decoration: const InputDecoration(
-                labelText: 'First Name',
-                hintText: 'Enter your first name',
+              decoration: InputDecoration(
+                labelText: context.t.firstName,
+                hintText: context.t.enterFirstName,
               ),
               textCapitalization: TextCapitalization.words,
             ),
             const SizedBox(height: 16),
             TextField(
               controller: lastNameController,
-              decoration: const InputDecoration(
-                labelText: 'Last Name',
-                hintText: 'Enter your last name',
+              decoration: InputDecoration(
+                labelText: context.t.lastName,
+                hintText: context.t.enterLastName,
               ),
               textCapitalization: TextCapitalization.words,
             ),
@@ -110,7 +113,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(context.t.cancel),
           ),
           FilledButton(
             onPressed: () async {
@@ -124,11 +127,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               if (!mounted) return;
               if (success) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Profile updated')),
+                  SnackBar(content: Text(context.t.profileUpdated)),
                 );
               }
             },
-            child: const Text('Save'),
+            child: Text(context.t.save),
           ),
         ],
       ),
@@ -139,14 +142,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Clear Local Data'),
-        content: const Text(
-          'This will clear all bookmarks, pinned conversations, achievements, and settings. This cannot be undone.',
-        ),
+        title: Text(context.t.clearLocalData),
+        content: Text(context.t.clearLocalDataWarning),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(context.t.cancel),
           ),
           FilledButton(
             onPressed: () async {
@@ -155,14 +156,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Navigator.of(context).pop();
                 _loadProfile();
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Local data cleared')),
+                  SnackBar(content: Text(context.t.localDataCleared)),
                 );
               }
             },
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.error,
             ),
-            child: const Text('Clear'),
+            child: Text(context.t.clear),
           ),
         ],
       ),
@@ -173,14 +174,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Logout From All Devices'),
-        content: const Text(
-          'This will end all active sessions, including this device.',
-        ),
+        title: Text(context.t.logoutFromAllDevices),
+        content: Text(context.t.logoutAllWarning),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(context.t.cancel),
           ),
           FilledButton(
             onPressed: () {
@@ -190,7 +189,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.error,
             ),
-            child: const Text('Logout All'),
+            child: Text(context.t.logoutAll),
           ),
         ],
       ),
@@ -205,7 +204,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Profile'),
+        title: Text(context.t.myProfile),
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: const BackButton(),
@@ -429,7 +428,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             runSpacing: 6,
             children: [
               Text(
-                fullName.isNotEmpty ? fullName : 'User',
+                fullName.isNotEmpty ? fullName : context.t.user,
                 style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -441,7 +440,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   size: 20,
                   color: colorScheme.primary,
                 ),
-                tooltip: 'Edit Profile',
+                tooltip: context.t.editProfile,
                 visualDensity: VisualDensity.compact,
               ),
             ],
@@ -474,8 +473,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
         icon: const Icon(Icons.logout),
-        label: const Text(
-          'Logout',
+        label: Text(
+          context.t.logout,
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
       ),
@@ -571,7 +570,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Icon(Icons.bar_chart_rounded, color: colorScheme.primary),
               const SizedBox(width: 8),
               Text(
-                'Your Stats',
+                context.t.yourStats,
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -585,7 +584,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: _StatCard(
                   icon: Icons.chat_bubble_outline_rounded,
                   value: _formatStat(profileState.conversationCount),
-                  label: 'Conversations',
+                  label: context.t.conversations,
                   color: Colors.blue,
                 ),
               ),
@@ -594,7 +593,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: _StatCard(
                   icon: Icons.message_outlined,
                   value: _formatStat(profileState.messageCount),
-                  label: 'Messages',
+                  label: context.t.messages,
                   color: Colors.green,
                 ),
               ),
@@ -603,7 +602,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: _StatCard(
                   icon: Icons.emoji_events_outlined,
                   value: _formatStat(profileState.unlockedAchievements.length),
-                  label: 'Badges',
+                  label: context.t.badges,
                   color: Colors.orange,
                 ),
               ),
@@ -632,7 +631,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Icon(Icons.flash_on_rounded, color: colorScheme.primary),
               const SizedBox(width: 8),
               Text(
-                'Quick Actions',
+                context.t.quickActions,
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -642,26 +641,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 16),
           _ActionTile(
             icon: Icons.bookmark_outline_rounded,
-            title: 'Bookmarks',
-            subtitle: 'View saved messages',
+            title: context.t.bookmarks,
+            subtitle: context.t.viewSavedMessages,
             onTap: () => context.push('/bookmarks'),
           ),
           _ActionTile(
             icon: Icons.explore_outlined,
-            title: 'Discover',
-            subtitle: 'AI tips and prompts',
+            title: context.t.discover,
+            subtitle: context.t.aiTipsAndPrompts,
             onTap: () => context.push('/discover'),
           ),
           _ActionTile(
             icon: Icons.person_outline,
-            title: 'Personalization',
-            subtitle: 'AI Persona & Preferences',
+            title: context.t.personalization,
+            subtitle: context.t.aiPersonaAndPreferences,
             onTap: () => context.push('/personalization'),
           ),
           _ActionTile(
             icon: Icons.palette_outlined,
-            title: 'Appearance',
-            subtitle: 'Customize chat look',
+            title: context.t.appearance,
+            subtitle: context.t.customizeChatLook,
             onTap: () {
               showModalBottomSheet(
                 context: context,
@@ -671,21 +670,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           _ActionTile(
             icon: Icons.devices_outlined,
-            title: 'Active Sessions',
-            subtitle: 'Manage devices',
+            title: context.t.activeSessions,
+            subtitle: context.t.manageDevices,
             onTap: () => context.push(RoutePaths.sessions),
           ),
           _ActionTile(
             icon: Icons.logout,
-            title: 'Logout All Devices',
-            subtitle: 'End every active session',
+            title: context.t.logoutAllDevices,
+            subtitle: context.t.endEveryActiveSession,
             onTap: _showLogoutAllDialog,
             isDestructive: true,
           ),
           _ActionTile(
             icon: Icons.delete_outline_rounded,
-            title: 'Clear Local Data',
-            subtitle: 'Reset bookmarks & settings',
+            title: context.t.clearLocalData,
+            subtitle: context.t.resetBookmarksAndSettings,
             onTap: _showClearDataDialog,
             isDestructive: true,
           ),

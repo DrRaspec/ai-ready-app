@@ -21,17 +21,39 @@ class ChatRepository {
   Future<ApiResponse<ChatResponse>> sendSmartMessage(
     ChatRequest request,
   ) async {
-    try {
-      final path = request.conversationId != null
-          ? ApiPaths.smartWithConversation(request.conversationId!)
-          : ApiPaths.smart;
+    final primaryPath = request.conversationId != null
+        ? ApiPaths.chatWithConversation(request.conversationId!)
+        : ApiPaths.chat;
+    final fallbackPath = request.conversationId != null
+        ? ApiPaths.smartWithConversation(request.conversationId!)
+        : ApiPaths.smart;
 
-      final response = await _dioClient.dio.post(path, data: request.toJson());
+    try {
+      final response = await _dioClient.dio.post(
+        primaryPath,
+        data: request.toJson(),
+      );
       return ApiResponse<ChatResponse>.fromJson(
         response.data,
         (json) => ChatResponse.fromJson(json as Map<String, dynamic>),
       );
     } on DioException catch (e) {
+      final status = e.response?.statusCode;
+      // Backward-compatible fallback for older backends still using /ai/smart.
+      if (status == 404 || status == 405) {
+        try {
+          final response = await _dioClient.dio.post(
+            fallbackPath,
+            data: request.toJson(),
+          );
+          return ApiResponse<ChatResponse>.fromJson(
+            response.data,
+            (json) => ChatResponse.fromJson(json as Map<String, dynamic>),
+          );
+        } on DioException catch (fallbackError) {
+          throw ApiException.fromDioException(fallbackError);
+        }
+      }
       throw ApiException.fromDioException(e);
     }
   }

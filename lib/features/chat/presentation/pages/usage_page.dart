@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:ai_chat_bot/core/localization/app_text.dart';
 import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_event.dart';
 import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_state.dart';
@@ -25,7 +26,9 @@ class _UsagePageState extends State<UsagePage> {
     final colorScheme = theme.colorScheme;
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(title: const Text('Usage Statistics')),
+      appBar: AppBar(
+        title: Text(context.t.tr('Usage Statistics', 'ស្ថិតិការប្រើប្រាស់')),
+      ),
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -47,9 +50,9 @@ class _UsagePageState extends State<UsagePage> {
                 enabled: true,
                 child: ListView(
                   padding: const EdgeInsets.all(16),
-                  children: const [
+                  children: [
                     _UsageCard(
-                      title: 'Today',
+                      title: context.t.tr('Today', 'ថ្ងៃនេះ'),
                       tokens: 1560,
                       requests: 42,
                       icon: Icons.today,
@@ -57,7 +60,7 @@ class _UsagePageState extends State<UsagePage> {
                     ),
                     SizedBox(height: 16),
                     _UsageCard(
-                      title: 'This Week',
+                      title: context.t.tr('This Week', 'សប្តាហ៍នេះ'),
                       tokens: 12500,
                       requests: 350,
                       icon: Icons.date_range,
@@ -65,7 +68,7 @@ class _UsagePageState extends State<UsagePage> {
                     ),
                     SizedBox(height: 16),
                     _UsageCard(
-                      title: 'This Month',
+                      title: context.t.tr('This Month', 'ខែនេះ'),
                       tokens: 45000,
                       requests: 1200,
                       icon: Icons.calendar_month,
@@ -84,7 +87,7 @@ class _UsagePageState extends State<UsagePage> {
                 padding: const EdgeInsets.all(16),
                 children: [
                   _UsageCard(
-                    title: 'Today',
+                    title: context.t.tr('Today', 'ថ្ងៃនេះ'),
                     tokens: usage.todayTokens,
                     requests: usage.todayRequests,
                     icon: Icons.today,
@@ -92,7 +95,7 @@ class _UsagePageState extends State<UsagePage> {
                   ),
                   const SizedBox(height: 16),
                   _UsageCard(
-                    title: 'This Week',
+                    title: context.t.tr('This Week', 'សប្តាហ៍នេះ'),
                     tokens: usage.weeklyTokens,
                     requests: usage.weeklyRequests,
                     icon: Icons.date_range,
@@ -100,7 +103,7 @@ class _UsagePageState extends State<UsagePage> {
                   ),
                   const SizedBox(height: 16),
                   _UsageCard(
-                    title: 'This Month',
+                    title: context.t.tr('This Month', 'ខែនេះ'),
                     tokens: usage.monthlyTokens,
                     requests: usage.monthlyRequests,
                     icon: Icons.calendar_month,
@@ -158,14 +161,14 @@ class _UsageCard extends StatelessWidget {
             children: [
               Expanded(
                 child: _StatItem(
-                  label: 'Tokens',
+                  label: context.t.tr('Tokens', 'តូខិន'),
                   value: _formatNumber(tokens),
                   color: color,
                 ),
               ),
               Expanded(
                 child: _StatItem(
-                  label: 'Requests',
+                  label: context.t.tr('Requests', 'សំណើ'),
                   value: requests.toString(),
                   color: color,
                 ),

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:ai_chat_bot/core/services/app_icon_service.dart';
+import 'package:ai_chat_bot/core/localization/app_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -45,7 +46,14 @@ class _AppIconPickerState extends State<AppIconPicker> {
 
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Icon changed to ${option.name}')),
+          SnackBar(
+            content: Text(
+              context.t.tr(
+                'Icon changed to ${option.name}',
+                'បានប្ដូររូបតំណាងទៅជា ${option.name}',
+              ),
+            ),
+          ),
         );
       }
     }
@@ -75,7 +83,7 @@ class _AppIconPickerState extends State<AppIconPicker> {
               ),
               const SizedBox(width: 8),
               Text(
-                'App Icon',
+                context.t.tr('App Icon', 'រូបតំណាងកម្មវិធី'),
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),

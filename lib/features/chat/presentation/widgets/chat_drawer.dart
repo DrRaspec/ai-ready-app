@@ -1,5 +1,6 @@
 import 'package:ai_chat_bot/features/chat/data/models/conversation.dart';
 import 'package:ai_chat_bot/features/chat/data/models/chat_mode.dart';
+import 'package:ai_chat_bot/core/localization/app_text.dart';
 import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_event.dart';
 import 'package:ai_chat_bot/features/chat/presentation/bloc/chat_state.dart';
@@ -60,19 +61,19 @@ class _ChatDrawerState extends State<ChatDrawer> {
                   // Search Bar
                   TextField(
                     decoration: InputDecoration(
-                      hintText: 'Search',
+                      hintText: context.t.search,
                       prefixIcon: Icon(
                         Icons.search,
                         color: colorScheme.onSurfaceVariant,
                       ),
                       suffixIcon: IconButton(
                         icon: const Icon(Icons.edit_square),
-                        onPressed: () {
+                        onPressed: () async {
                           // New Chat
                           context.read<ChatBloc>().add(const NewConversation());
-                          context.pop();
+                          await _closeDrawerIfOpen();
                         },
-                        tooltip: 'New Chat',
+                        tooltip: context.t.newChat,
                       ),
                       filled: true,
                       fillColor: colorScheme.surfaceContainerHighest.withValues(
@@ -109,18 +110,18 @@ class _ChatDrawerState extends State<ChatDrawer> {
                               return _buildQuickActionTile(
                                 context,
                                 icon: Icons.auto_awesome,
-                                label: 'Images',
+                                label: context.t.images,
                                 compact: true,
                                 isSelected: isImageMode,
                                 accentColor: colorScheme.primary,
-                                onTap: () {
+                                onTap: () async {
                                   context.read<ChatBloc>().add(
                                     const SetChatMode(ChatMode.imageGeneration),
                                   );
                                   context.read<ChatBloc>().add(
                                     const NewConversation(),
                                   );
-                                  context.pop();
+                                  await _closeDrawerIfOpen();
                                 },
                               );
                             },
@@ -131,13 +132,10 @@ class _ChatDrawerState extends State<ChatDrawer> {
                           child: _buildQuickActionTile(
                             context,
                             icon: Icons.lightbulb_outline,
-                            label: 'Prompts',
+                            label: context.t.prompts,
                             compact: true,
                             accentColor: Colors.amber,
-                            onTap: () {
-                              context.pop();
-                              context.push('/prompts');
-                            },
+                            onTap: _openPromptLibrary,
                           ),
                         ),
                       ],
@@ -150,17 +148,17 @@ class _ChatDrawerState extends State<ChatDrawer> {
                         return _buildQuickActionTile(
                           context,
                           icon: Icons.auto_awesome,
-                          label: 'Images',
+                          label: context.t.images,
                           isSelected: isImageMode,
                           accentColor: colorScheme.primary,
-                          onTap: () {
+                          onTap: () async {
                             context.read<ChatBloc>().add(
                               const SetChatMode(ChatMode.imageGeneration),
                             );
                             context.read<ChatBloc>().add(
                               const NewConversation(),
                             );
-                            context.pop();
+                            await _closeDrawerIfOpen();
                           },
                         );
                       },
@@ -169,12 +167,9 @@ class _ChatDrawerState extends State<ChatDrawer> {
                     _buildQuickActionTile(
                       context,
                       icon: Icons.lightbulb_outline,
-                      label: 'Prompt Library',
+                      label: context.t.promptLibrary,
                       accentColor: Colors.amber,
-                      onTap: () {
-                        context.pop();
-                        context.push('/prompts');
-                      },
+                      onTap: _openPromptLibrary,
                     ),
                   ],
 
@@ -184,12 +179,12 @@ class _ChatDrawerState extends State<ChatDrawer> {
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(
-                      onPressed: () {
+                      onPressed: () async {
                         context.read<ChatBloc>().add(const NewConversation());
-                        context.pop();
+                        await _closeDrawerIfOpen();
                       },
                       icon: const Icon(Icons.add),
-                      label: const Text('New Conversation'),
+                      label: Text(context.t.newConversation),
                       style: FilledButton.styleFrom(
                         padding: EdgeInsets.symmetric(
                           vertical: isCompactHeight ? 12 : 16,
@@ -225,7 +220,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
                             _buildFolderChip(
                               context,
                               null,
-                              'All',
+                              context.t.all,
                               chatState.currentFolderId == null,
                             ),
                             const SizedBox(width: 8),
@@ -281,7 +276,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
                       child: ListView.builder(
                         itemCount: 5,
                         itemBuilder: (context, index) =>
-                            const ListTile(title: Text('Loading...')),
+                            ListTile(title: Text(context.t.loading)),
                       ),
                     );
                   }
@@ -301,8 +296,8 @@ class _ChatDrawerState extends State<ChatDrawer> {
                           const SizedBox(height: 16),
                           Text(
                             state.isSearching
-                                ? 'No matching conversations'
-                                : 'No conversations yet',
+                                ? context.t.noMatchingConversations
+                                : context.t.noConversationsYet,
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: colorScheme.onSurfaceVariant,
                             ),
@@ -371,7 +366,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
                               horizontal: 16,
                             ),
                             title: Text(
-                              conversation.title ?? 'New Chat',
+                              conversation.title ?? context.t.newChat,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.bodyMedium?.copyWith(
@@ -397,7 +392,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
                             ),
                             onLongPress: () =>
                                 _showOptionsSheet(context, conversation),
-                            onTap: () {
+                            onTap: () async {
                               // Reset search on select
                               context.read<ChatBloc>().add(
                                 const SearchConversations(''),
@@ -408,7 +403,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
                                   SelectConversation(conversation.id),
                                 );
                               }
-                              context.pop();
+                              await _closeDrawerIfOpen();
                             },
                           );
                         },
@@ -435,11 +430,11 @@ class _ChatDrawerState extends State<ChatDrawer> {
                   style: TextStyle(color: colorScheme.onPrimary),
                 ),
               ),
-              title: const Text('My Profile'),
+              title: Text(context.t.myProfile),
               subtitle: isCompactHeight
                   ? null
                   : Text(
-                      'Basic Account',
+                      context.t.basicAccount,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                       ),
@@ -453,6 +448,23 @@ class _ChatDrawerState extends State<ChatDrawer> {
         ),
       ),
     );
+  }
+
+  Future<void> _closeDrawerIfOpen() async {
+    final scaffold = Scaffold.maybeOf(context);
+    final isDrawerOpen = scaffold?.isDrawerOpen ?? false;
+    final isEndDrawerOpen = scaffold?.isEndDrawerOpen ?? false;
+    if (!isDrawerOpen && !isEndDrawerOpen) return;
+
+    final navigator = Navigator.maybeOf(context);
+    if (navigator == null) return;
+    await navigator.maybePop();
+  }
+
+  Future<void> _openPromptLibrary() async {
+    final router = GoRouter.of(context);
+    await _closeDrawerIfOpen();
+    router.push('/prompts');
   }
 
   Widget _buildQuickActionTile(
@@ -528,7 +540,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
           children: [
             ListTile(
               leading: const Icon(Icons.edit_outlined),
-              title: const Text('Rename'),
+              title: Text(context.t.rename),
               onTap: () {
                 Navigator.pop(sheetContext);
                 _showRenameDialog(context, conversation);
@@ -536,7 +548,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
             ),
             ListTile(
               leading: const Icon(Icons.drive_file_move_outlined),
-              title: const Text('Move to Folder'),
+              title: Text(context.t.moveToFolder),
               onTap: () {
                 Navigator.pop(sheetContext);
                 _showMoveToFolderDialog(context, conversation);
@@ -544,7 +556,10 @@ class _ChatDrawerState extends State<ChatDrawer> {
             ),
             ListTile(
               leading: const Icon(Icons.delete_outline, color: Colors.red),
-              title: const Text('Delete', style: TextStyle(color: Colors.red)),
+              title: Text(
+                context.t.delete,
+                style: const TextStyle(color: Colors.red),
+              ),
               onTap: () {
                 Navigator.pop(sheetContext);
                 _showDeleteDialog(context, conversation);
@@ -560,14 +575,16 @@ class _ChatDrawerState extends State<ChatDrawer> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Conversation'),
+        title: Text(context.t.deleteConversation),
         content: Text(
-          'Are you sure you want to delete "${conversation.title ?? "this conversation"}"?',
+          context.t.deleteConversationConfirm(
+            conversation.title ?? context.t.thisConversation,
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(context.t.cancel),
           ),
           FilledButton(
             onPressed: () {
@@ -579,7 +596,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
               backgroundColor: Theme.of(context).colorScheme.error,
               foregroundColor: Theme.of(context).colorScheme.onError,
             ),
-            child: const Text('Delete'),
+            child: Text(context.t.delete),
           ),
         ],
       ),
@@ -592,12 +609,12 @@ class _ChatDrawerState extends State<ChatDrawer> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Rename Conversation'),
+        title: Text(context.t.renameConversation),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(
-            labelText: 'Conversation Title',
-            hintText: 'Enter a new title',
+          decoration: InputDecoration(
+            labelText: context.t.conversationTitle,
+            hintText: context.t.enterNewTitle,
           ),
           autofocus: true,
           textCapitalization: TextCapitalization.sentences,
@@ -605,7 +622,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(context.t.cancel),
           ),
           FilledButton(
             onPressed: () {
@@ -617,7 +634,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
               }
               Navigator.pop(ctx);
             },
-            child: const Text('Rename'),
+            child: Text(context.t.rename),
           ),
         ],
       ),
@@ -696,7 +713,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
             ),
             ListTile(
               leading: const Icon(Icons.edit_outlined),
-              title: const Text('Rename Folder'),
+              title: Text(context.t.renameFolder),
               onTap: () {
                 Navigator.pop(sheetContext);
                 _showRenameFolderDialog(context, folderId, folderName);
@@ -704,9 +721,9 @@ class _ChatDrawerState extends State<ChatDrawer> {
             ),
             ListTile(
               leading: const Icon(Icons.delete_outline, color: Colors.red),
-              title: const Text(
-                'Delete Folder',
-                style: TextStyle(color: Colors.red),
+              title: Text(
+                context.t.deleteFolder,
+                style: const TextStyle(color: Colors.red),
               ),
               onTap: () {
                 Navigator.pop(sheetContext);
@@ -728,12 +745,12 @@ class _ChatDrawerState extends State<ChatDrawer> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Rename Folder'),
+        title: Text(context.t.renameFolder),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(
-            labelText: 'Folder Name',
-            hintText: 'Enter new name',
+          decoration: InputDecoration(
+            labelText: context.t.folderName,
+            hintText: context.t.enterNewName,
           ),
           autofocus: true,
           textCapitalization: TextCapitalization.words,
@@ -741,7 +758,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(context.t.cancel),
           ),
           FilledButton(
             onPressed: () {
@@ -751,7 +768,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
               }
               Navigator.pop(ctx);
             },
-            child: const Text('Rename'),
+            child: Text(context.t.rename),
           ),
         ],
       ),
@@ -766,14 +783,14 @@ class _ChatDrawerState extends State<ChatDrawer> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Folder'),
+        title: Text(context.t.deleteFolder),
         content: Text(
-          'Are you sure you want to delete folder "$folderName"?\nConversations inside will be moved to "All".',
+          context.t.deleteFolderConfirm(folderName),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(context.t.cancel),
           ),
           FilledButton(
             onPressed: () {
@@ -787,7 +804,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
               backgroundColor: Theme.of(context).colorScheme.error,
               foregroundColor: Theme.of(context).colorScheme.onError,
             ),
-            child: const Text('Delete'),
+            child: Text(context.t.delete),
           ),
         ],
       ),
@@ -799,12 +816,12 @@ class _ChatDrawerState extends State<ChatDrawer> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('New Folder'),
+        title: Text(context.t.newFolder),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(
-            labelText: 'Folder Name',
-            hintText: 'e.g., Work, Personal',
+          decoration: InputDecoration(
+            labelText: context.t.folderName,
+            hintText: context.t.folderNameExamples,
           ),
           autofocus: true,
           textCapitalization: TextCapitalization.words,
@@ -812,7 +829,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(context.t.cancel),
           ),
           FilledButton(
             onPressed: () {
@@ -822,7 +839,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
               }
               Navigator.pop(ctx);
             },
-            child: const Text('Create'),
+            child: Text(context.t.create),
           ),
         ],
       ),
@@ -836,7 +853,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Move to Folder'),
+        title: Text(context.t.moveToFolder),
         content: SizedBox(
           width: double.maxFinite,
           child: BlocBuilder<FolderCubit, FolderState>(
@@ -847,7 +864,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
                   children: [
                     ListTile(
                       leading: const Icon(Icons.folder_off_outlined),
-                      title: const Text('No Folder (Uncategorized)'),
+                      title: Text(context.t.noFolderUncategorized),
                       onTap: () {
                         final chatBloc = context.read<ChatBloc>();
                         chatBloc.add(MoveToFolder(conversation.id, null));
@@ -878,7 +895,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(context.t.cancel),
           ),
         ],
       ),

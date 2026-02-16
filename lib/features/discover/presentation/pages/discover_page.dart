@@ -1,4 +1,5 @@
 import 'package:ai_chat_bot/features/prompts/data/prompts_data.dart';
+import 'package:ai_chat_bot/core/localization/app_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -13,7 +14,7 @@ class DiscoverPage extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(title: const Text('Discover')),
+      appBar: AppBar(title: Text(context.t.discover)),
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -32,15 +33,15 @@ class DiscoverPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Hero Section
-              _buildHeroSection(theme, colorScheme),
+              _buildHeroSection(context, theme, colorScheme),
               const SizedBox(height: 24),
 
               // Tips Section
-              _buildTipsSection(theme, colorScheme),
+              _buildTipsSection(context, theme, colorScheme),
               const SizedBox(height: 24),
 
               // AI Capabilities
-              _buildCapabilitiesSection(theme, colorScheme),
+              _buildCapabilitiesSection(context, theme, colorScheme),
               const SizedBox(height: 24),
 
               // Prompt Ideas
@@ -53,7 +54,11 @@ class DiscoverPage extends StatelessWidget {
     );
   }
 
-  Widget _buildHeroSection(ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildHeroSection(
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -74,7 +79,7 @@ class DiscoverPage extends StatelessWidget {
           const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 48),
           const SizedBox(height: 16),
           Text(
-            'Unlock AI Power',
+            context.t.tr('Unlock AI Power', 'ដោះសោសមត្ថភាព AI'),
             style: theme.textTheme.headlineSmall?.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.bold,
@@ -82,7 +87,10 @@ class DiscoverPage extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Explore tips, prompts, and capabilities to get the most out of your AI assistant.',
+            context.t.tr(
+              'Explore tips, prompts, and capabilities to get the most out of your AI assistant.',
+              'ស្វែងយល់ពីគន្លឹះ ពាក្យបញ្ជា និងសមត្ថភាពផ្សេងៗ ដើម្បីប្រើ AI ឱ្យមានប្រសិទ្ធភាពបំផុត។',
+            ),
             style: theme.textTheme.bodyMedium?.copyWith(
               color: Colors.white.withValues(alpha: 0.9),
             ),
@@ -92,30 +100,46 @@ class DiscoverPage extends StatelessWidget {
     );
   }
 
-  Widget _buildTipsSection(ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildTipsSection(
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
     final tips = [
       {
         'icon': Icons.format_quote_rounded,
-        'tip': 'Be specific about what you want',
-        'detail':
-            'Instead of "write about dogs", try "write a 200-word article about golden retrievers as family pets"',
+        'tip': context.t.tr(
+          'Be specific about what you want',
+          'សូមបញ្ជាក់អ្វីដែលអ្នកចង់បានឱ្យច្បាស់',
+        ),
+        'detail': context.t.tr(
+          'Instead of "write about dogs", try "write a 200-word article about golden retrievers as family pets"',
+          'ជំនួសឱ្យ "សរសេរអំពីឆ្កែ" សាកល្បង "សរសេរអត្ថបទ 200 ពាក្យអំពី Golden Retriever ជាសត្វចិញ្ចឹមគ្រួសារ"',
+        ),
       },
       {
         'icon': Icons.layers_rounded,
-        'tip': 'Provide context',
-        'detail':
-            'Tell the AI your role, target audience, or specific requirements',
+        'tip': context.t.tr('Provide context', 'ផ្តល់បរិបទ'),
+        'detail': context.t.tr(
+          'Tell the AI your role, target audience, or specific requirements',
+          'ប្រាប់ AI អំពីតួនាទី អ្នកស្តាប់គោលដៅ ឬតម្រូវការជាក់លាក់របស់អ្នក',
+        ),
       },
       {
         'icon': Icons.repeat_rounded,
-        'tip': 'Iterate and refine',
-        'detail': 'Ask follow-up questions to improve the response',
+        'tip': context.t.tr('Iterate and refine', 'សួរបន្ថែម និងកែលម្អ'),
+        'detail': context.t.tr(
+          'Ask follow-up questions to improve the response',
+          'សួរសំណួរបន្តដើម្បីធ្វើឱ្យចម្លើយកាន់តែល្អ',
+        ),
       },
       {
         'icon': Icons.format_list_numbered_rounded,
-        'tip': 'Request specific formats',
-        'detail':
-            'Ask for lists, tables, bullet points, or step-by-step guides',
+        'tip': context.t.tr('Request specific formats', 'ស្នើទម្រង់ឯកសារជាក់លាក់'),
+        'detail': context.t.tr(
+          'Ask for lists, tables, bullet points, or step-by-step guides',
+          'ស្នើជាបញ្ជី តារាង ចំណុចសង្ខេប ឬជាជំហានៗ',
+        ),
       },
     ];
 
@@ -127,7 +151,7 @@ class DiscoverPage extends StatelessWidget {
             Icon(Icons.tips_and_updates_outlined, color: colorScheme.primary),
             const SizedBox(width: 8),
             Text(
-              'Pro Tips',
+              context.t.tr('Pro Tips', 'គន្លឹះប្រសើរ'),
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -146,42 +170,46 @@ class DiscoverPage extends StatelessWidget {
     );
   }
 
-  Widget _buildCapabilitiesSection(ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildCapabilitiesSection(
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
     final capabilities = [
       {
         'icon': Icons.chat_rounded,
-        'name': 'Chat',
-        'desc': 'Natural conversations',
+        'name': context.t.tr('Chat', 'ជជែក'),
+        'desc': context.t.tr('Natural conversations', 'សន្ទនាធម្មជាតិ'),
         'color': 0xFF0B6E99,
       },
       {
         'icon': Icons.image_rounded,
-        'name': 'Vision',
-        'desc': 'Analyze images',
+        'name': context.t.tr('Vision', 'វិស័យរូបភាព'),
+        'desc': context.t.tr('Analyze images', 'វិភាគរូបភាព'),
         'color': 0xFF0E9F6E,
       },
       {
         'icon': Icons.mic_rounded,
-        'name': 'Voice',
-        'desc': 'Speech to text',
+        'name': context.t.tr('Voice', 'សំឡេង'),
+        'desc': context.t.tr('Speech to text', 'បម្លែងសំឡេងជាអក្សរ'),
         'color': 0xFFB45309,
       },
       {
         'icon': Icons.brush_rounded,
-        'name': 'Generate',
-        'desc': 'Create images',
+        'name': context.t.tr('Generate', 'បង្កើត'),
+        'desc': context.t.tr('Create images', 'បង្កើតរូបភាព'),
         'color': 0xFF0F766E,
       },
       {
         'icon': Icons.code_rounded,
-        'name': 'Code',
-        'desc': 'Write & debug',
+        'name': context.t.tr('Code', 'កូដ'),
+        'desc': context.t.tr('Write & debug', 'សរសេរ និងដោះកំហុស'),
         'color': 0xFF1E3A8A,
       },
       {
         'icon': Icons.translate_rounded,
-        'name': 'Translate',
-        'desc': 'Any language',
+        'name': context.t.tr('Translate', 'បកប្រែ'),
+        'desc': context.t.tr('Any language', 'គ្រប់ភាសា'),
         'color': 0xFF0C4A6E,
       },
     ];
@@ -194,7 +222,7 @@ class DiscoverPage extends StatelessWidget {
             Icon(Icons.rocket_launch_outlined, color: colorScheme.primary),
             const SizedBox(width: 8),
             Text(
-              'AI Capabilities',
+              context.t.tr('AI Capabilities', 'សមត្ថភាព AI'),
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -250,7 +278,7 @@ class DiscoverPage extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Prompt Ideas',
+                  context.t.tr('Prompt Ideas', 'គំនិតពាក្យបញ្ជា'),
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -259,7 +287,7 @@ class DiscoverPage extends StatelessWidget {
             ),
             TextButton(
               onPressed: () => context.push('/chat'),
-              child: const Text('Try Now'),
+              child: Text(context.t.tr('Try Now', 'សាកល្បងឥឡូវ')),
             ),
           ],
         ),
@@ -269,7 +297,7 @@ class DiscoverPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                category.name,
+                context.t.promptCategoryName(category.name),
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: Color(category.color),
@@ -281,14 +309,19 @@ class DiscoverPage extends StatelessWidget {
                 runSpacing: 8,
                 children: category.prompts.take(3).map((prompt) {
                   return ActionChip(
-                    label: Text(prompt.title),
+                    label: Text(context.t.promptTitle(prompt.title)),
                     onPressed: () {
                       HapticFeedback.lightImpact();
                       // Copy to clipboard only
                       Clipboard.setData(ClipboardData(text: prompt.content));
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Prompt copied! Paste in chat'),
+                        SnackBar(
+                          content: Text(
+                            context.t.tr(
+                              'Prompt copied! Paste in chat',
+                              'បានចម្លងពាក្យបញ្ជា! បិទភ្ជាប់ក្នុងជជែក',
+                            ),
+                          ),
                           duration: Duration(seconds: 2),
                         ),
                       );

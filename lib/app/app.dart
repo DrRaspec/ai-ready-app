@@ -15,6 +15,7 @@ import 'package:ai_chat_bot/features/gamification/presentation/bloc/gamification
 import 'package:ai_chat_bot/features/gamification/presentation/widgets/achievement_listener.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import '../core/theme/app_theme.dart';
 import '../core/theme/theme_cubit.dart';
@@ -41,7 +42,10 @@ class App extends StatelessWidget {
       providers: [
         BlocProvider(create: (_) => ThemeCubit(initialTheme: initialTheme)),
         BlocProvider(
-          create: (_) => SettingsCubit(initialState: initialSettings),
+          create: (_) => SettingsCubit(
+            initialState: initialSettings,
+            authRepository: di<AuthRepository>(),
+          ),
         ),
         BlocProvider(
           create: (_) => AuthBloc(
@@ -71,20 +75,52 @@ class App extends StatelessWidget {
         builder: (context, themeState) {
           return BlocBuilder<SettingsCubit, SettingsState>(
             builder: (context, settingsState) {
+              final effectiveLocaleCode =
+                  settingsState.localeCode ??
+                  WidgetsBinding.instance.platformDispatcher.locale.languageCode;
               return MaterialApp.router(
                 debugShowCheckedModeBanner: false,
-                theme: AppTheme.light(fontFamily: settingsState.fontFamily),
-                darkTheme: AppTheme.dark(fontFamily: settingsState.fontFamily),
+                theme: AppTheme.light(
+                  fontFamily: settingsState.fontFamily,
+                  localeCode: effectiveLocaleCode,
+                ),
+                darkTheme: AppTheme.dark(
+                  fontFamily: settingsState.fontFamily,
+                  localeCode: effectiveLocaleCode,
+                ),
                 themeMode: themeState.mode,
+                locale: settingsState.localeCode == null
+                    ? null
+                    : Locale(settingsState.localeCode!),
+                supportedLocales: const [Locale('en'), Locale('km')],
+                localizationsDelegates: const [
+                  GlobalMaterialLocalizations.delegate,
+                  GlobalCupertinoLocalizations.delegate,
+                  GlobalWidgetsLocalizations.delegate,
+                ],
                 routerConfig: appRouter,
                 builder: (context, child) {
                   final mediaQuery = MediaQuery.of(context);
-                  return BlocListener<AuthBloc, AuthState>(
-                    listenWhen: (previous, current) =>
-                        current is Unauthenticated,
-                    listener: (context, state) {
-                      appRouter.go(RoutePaths.login);
-                    },
+                  return MultiBlocListener(
+                    listeners: [
+                      BlocListener<AuthBloc, AuthState>(
+                        listenWhen: (previous, current) =>
+                            previous is! Authenticated &&
+                            current is Authenticated,
+                        listener: (context, state) async {
+                          await context
+                              .read<SettingsCubit>()
+                              .syncFromServerPreferences();
+                        },
+                      ),
+                      BlocListener<AuthBloc, AuthState>(
+                        listenWhen: (previous, current) =>
+                            current is Unauthenticated,
+                        listener: (context, state) {
+                          appRouter.go(RoutePaths.login);
+                        },
+                      ),
+                    ],
                     child: MediaQuery(
                       data: mediaQuery.copyWith(
                         textScaler: TextScaler.linear(

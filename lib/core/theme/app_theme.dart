@@ -3,23 +3,26 @@ import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 
 class AppTheme {
-  static ThemeData light({String? fontFamily}) {
+  static ThemeData light({String? fontFamily, String? localeCode}) {
     return _buildTheme(
       brightness: Brightness.light,
       fontFamily: fontFamily ?? 'App Default',
+      localeCode: localeCode,
     );
   }
 
-  static ThemeData dark({String? fontFamily}) {
+  static ThemeData dark({String? fontFamily, String? localeCode}) {
     return _buildTheme(
       brightness: Brightness.dark,
       fontFamily: fontFamily ?? 'App Default',
+      localeCode: localeCode,
     );
   }
 
   static ThemeData _buildTheme({
     required Brightness brightness,
     required String fontFamily,
+    String? localeCode,
   }) {
     final isDark = brightness == Brightness.dark;
     final scheme =
@@ -72,7 +75,11 @@ class AppTheme {
       ),
     );
 
-    final textTheme = _getTextTheme(fontFamily, baseTextTheme);
+    final textTheme = _getTextTheme(
+      fontFamily,
+      baseTextTheme,
+      localeCode: localeCode,
+    );
     final borderSide = BorderSide(
       color: scheme.outlineVariant.withValues(alpha: 0.65),
     );
@@ -218,8 +225,32 @@ class AppTheme {
     );
   }
 
-  static TextTheme _getTextTheme(String fontFamily, TextTheme base) {
+  static TextTheme _getTextTheme(
+    String fontFamily,
+    TextTheme base, {
+    String? localeCode,
+  }) {
+    final isKhmerLocale = localeCode?.toLowerCase() == 'km';
+    if (isKhmerLocale) {
+      switch (fontFamily) {
+        case 'Kantumruy Pro':
+          return GoogleFonts.kantumruyProTextTheme(base);
+        case 'Battambang':
+          return GoogleFonts.battambangTextTheme(base);
+        case 'Hanuman':
+          return GoogleFonts.hanumanTextTheme(base);
+        case 'Khmer':
+          return GoogleFonts.khmerTextTheme(base);
+        default:
+          return GoogleFonts.notoSansKhmerTextTheme(base);
+      }
+    }
+
     switch (fontFamily) {
+      case 'App Default':
+        return GoogleFonts.plusJakartaSansTextTheme(base);
+      case 'Outfit':
+        return GoogleFonts.outfitTextTheme(base);
       case 'Roboto':
         return GoogleFonts.robotoTextTheme(base);
       case 'Inter':
@@ -228,6 +259,16 @@ class AppTheme {
         return GoogleFonts.loraTextTheme(base);
       case 'Monospace':
         return GoogleFonts.spaceMonoTextTheme(base);
+      case 'Noto Sans Khmer':
+        return GoogleFonts.notoSansKhmerTextTheme(base);
+      case 'Kantumruy Pro':
+        return GoogleFonts.kantumruyProTextTheme(base);
+      case 'Battambang':
+        return GoogleFonts.battambangTextTheme(base);
+      case 'Hanuman':
+        return GoogleFonts.hanumanTextTheme(base);
+      case 'Khmer':
+        return GoogleFonts.khmerTextTheme(base);
       default:
         return GoogleFonts.plusJakartaSansTextTheme(base);
     }

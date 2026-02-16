@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:ai_chat_bot/core/localization/app_text.dart';
 import 'package:ai_chat_bot/features/settings/presentation/bloc/settings_cubit.dart';
 import 'package:ai_chat_bot/features/settings/presentation/bloc/settings_state.dart';
 import 'package:ai_chat_bot/features/settings/presentation/widgets/app_icon_picker.dart';
@@ -21,7 +22,7 @@ class SettingsModal extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Appearance Settings',
+                context.t.appearanceSettings,
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               IconButton(
@@ -39,6 +40,8 @@ class SettingsModal extends StatelessWidget {
                   const _FontSizeSection(),
                   const SizedBox(height: 24),
                   const _FontFamilySection(),
+                  const SizedBox(height: 24),
+                  const _LanguageSection(),
                   const SizedBox(height: 24),
                   if (Platform.isIOS) ...[
                     const AppIconPicker(),
@@ -68,7 +71,7 @@ class _FontSizeSection extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Font Size',
+                  context.t.fontSize,
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 Text(
@@ -109,42 +112,49 @@ class _FontSizeSection extends StatelessWidget {
 class _FontFamilySection extends StatelessWidget {
   const _FontFamilySection();
 
-  static const List<String> _fonts = [
-    'Outfit',
+  static const List<String> _englishFonts = [
+    'App Default',
     'Roboto',
     'Inter',
     'Lora',
     'Monospace',
+  ];
+  static const List<String> _khmerFonts = [
+    'App Default',
+    'Noto Sans Khmer',
+    'Kantumruy Pro',
+    'Battambang',
+    'Hanuman',
+    'Khmer',
   ];
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<SettingsCubit, SettingsState>(
       builder: (context, state) {
+        final effectiveLocaleCode =
+            state.localeCode ?? Localizations.localeOf(context).languageCode;
+        final isKhmer = effectiveLocaleCode == 'km';
+        final fonts = isKhmer ? _khmerFonts : _englishFonts;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Font Family', style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              context.t.fontFamily,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 12),
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: _fonts.map((font) {
-                final isSelected =
-                    state.fontFamily == font ||
-                    (state.fontFamily == 'App Default' && font == 'Outfit');
+              children: fonts.map((font) {
+                final isSelected = state.fontFamily == font;
                 return ChoiceChip(
-                  label: Text(font, style: _getFontStyle(font)),
+                  label: Text(font, style: _getFontStyle(font, isKhmer)),
                   selected: isSelected,
                   onSelected: (selected) {
                     if (selected) {
-                      if (font == 'Outfit') {
-                        context.read<SettingsCubit>().setFontFamily(
-                          'App Default',
-                        );
-                      } else {
-                        context.read<SettingsCubit>().setFontFamily(font);
-                      }
+                      context.read<SettingsCubit>().setFontFamily(font);
                     }
                   },
                 );
@@ -156,8 +166,12 @@ class _FontFamilySection extends StatelessWidget {
     );
   }
 
-  TextStyle? _getFontStyle(String font) {
+  TextStyle? _getFontStyle(String font, bool isKhmer) {
     switch (font) {
+      case 'App Default':
+        return isKhmer
+            ? GoogleFonts.notoSansKhmer()
+            : GoogleFonts.plusJakartaSans();
       case 'Roboto':
         return GoogleFonts.roboto();
       case 'Inter':
@@ -166,8 +180,75 @@ class _FontFamilySection extends StatelessWidget {
         return GoogleFonts.lora();
       case 'Monospace':
         return GoogleFonts.spaceMono();
+      case 'Noto Sans Khmer':
+        return GoogleFonts.notoSansKhmer();
+      case 'Kantumruy Pro':
+        return GoogleFonts.kantumruyPro();
+      case 'Battambang':
+        return GoogleFonts.battambang();
+      case 'Hanuman':
+        return GoogleFonts.hanuman();
+      case 'Khmer':
+        return GoogleFonts.khmer();
       default:
-        return GoogleFonts.outfit();
+        return isKhmer
+            ? GoogleFonts.notoSansKhmer()
+            : GoogleFonts.plusJakartaSans();
     }
+  }
+}
+
+class _LanguageSection extends StatelessWidget {
+  const _LanguageSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<SettingsCubit, SettingsState>(
+      builder: (context, state) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              context.t.language,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ChoiceChip(
+                  label: Text(context.t.systemLanguage),
+                  selected: state.localeCode == null,
+                  onSelected: (selected) {
+                    if (selected) {
+                      context.read<SettingsCubit>().setLocaleCode(null);
+                    }
+                  },
+                ),
+                ChoiceChip(
+                  label: Text(context.t.english),
+                  selected: state.localeCode == 'en',
+                  onSelected: (selected) {
+                    if (selected) {
+                      context.read<SettingsCubit>().setLocaleCode('en');
+                    }
+                  },
+                ),
+                ChoiceChip(
+                  label: Text(context.t.khmer),
+                  selected: state.localeCode == 'km',
+                  onSelected: (selected) {
+                    if (selected) {
+                      context.read<SettingsCubit>().setLocaleCode('km');
+                    }
+                  },
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
   }
 }

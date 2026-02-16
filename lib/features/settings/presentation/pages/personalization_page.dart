@@ -1,11 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
+import 'package:ai_chat_bot/core/localization/app_text.dart';
 import 'package:ai_chat_bot/features/auth/data/auth_repository.dart';
 import 'package:ai_chat_bot/features/auth/data/models/user_preferences.dart';
 import 'package:ai_chat_bot/features/settings/presentation/bloc/personalization_cubit.dart';
 import 'package:ai_chat_bot/features/settings/presentation/bloc/personalization_state.dart';
-import 'package:ai_chat_bot/core/theme/theme_cubit.dart';
+import 'package:ai_chat_bot/features/settings/presentation/bloc/settings_cubit.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
 class PersonalizationPage extends StatelessWidget {
@@ -32,11 +35,12 @@ class _PersonalizationViewState extends State<_PersonalizationView> {
   final _systemInstructionsController = TextEditingController();
   final _preferredNameController = TextEditingController();
   final _preferredToneController = TextEditingController();
-  final _preferredLanguageController = TextEditingController();
+  String _preferredLanguage = 'English';
+  Timer? _preferredNameDebounce;
+  String _lastSyncedPreferredName = '';
+  String _lastSyncedPreferredLanguage = 'English';
   bool _streamResponse = true;
   bool _hapticFeedback = true;
-  String _themeMode = 'system';
-  String? _defaultModel;
 
   @override
   void initState() {
@@ -48,8 +52,44 @@ class _PersonalizationViewState extends State<_PersonalizationView> {
     _systemInstructionsController.dispose();
     _preferredNameController.dispose();
     _preferredToneController.dispose();
-    _preferredLanguageController.dispose();
+    _preferredNameDebounce?.cancel();
     super.dispose();
+  }
+
+  String _normalizePreferredLanguage(String? value) {
+    final normalized = value?.trim().toLowerCase();
+    if (normalized == 'km' || normalized == 'kh' || normalized == 'khmer') {
+      return 'Khmer';
+    }
+    return 'English';
+  }
+
+  void _schedulePreferredNameSync(String value) {
+    final normalized = value.trim();
+    if (normalized == _lastSyncedPreferredName) return;
+
+    _preferredNameDebounce?.cancel();
+    _preferredNameDebounce = Timer(const Duration(milliseconds: 700), () async {
+      if (!mounted) return;
+      final updated = await context.read<PersonalizationCubit>().updatePreferences(
+        UserPreferences(preferredName: normalized),
+        showSuccess: false,
+      );
+      if (updated) {
+        _lastSyncedPreferredName = normalized;
+      }
+    });
+  }
+
+  Future<void> _syncPreferredLanguage(String value) async {
+    if (value == _lastSyncedPreferredLanguage) return;
+    final updated = await context.read<PersonalizationCubit>().updatePreferences(
+      UserPreferences(preferredLanguage: value),
+      showSuccess: false,
+    );
+    if (updated) {
+      _lastSyncedPreferredLanguage = value;
+    }
   }
 
   @override
@@ -60,13 +100,17 @@ class _PersonalizationViewState extends State<_PersonalizationView> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Personalization'),
+        title: Text(context.t.personalization),
         actions: [
           BlocConsumer<PersonalizationCubit, PersonalizationState>(
             listener: (context, state) {
               if (state.isSuccess) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Preferences saved')),
+                  SnackBar(
+                    content: Text(
+                      context.t.tr('Preferences saved', 'បានរក្សាទុកចំណូលចិត្ត'),
+                    ),
+                  ),
                 );
                 context.read<PersonalizationCubit>().resetSuccess();
               }
@@ -80,19 +124,17 @@ class _PersonalizationViewState extends State<_PersonalizationView> {
               return TextButton(
                 onPressed: state.isLoading
                     ? null
-                    : () {
+                    : () async {
                         final prefs = UserPreferences(
                           systemInstructions:
                               _systemInstructionsController.text,
-                          preferredName: _preferredNameController.text,
+                          preferredName: _preferredNameController.text.trim(),
                           preferredTone: _preferredToneController.text,
-                          preferredLanguage: _preferredLanguageController.text,
-                          streamResponse: _streamResponse,
-                          hapticFeedback: _hapticFeedback,
-                          themeMode: _themeMode,
-                          model: _defaultModel,
+                          preferredLanguage: _preferredLanguage,
                         );
-                        context.read<PersonalizationCubit>().updatePreferences(
+                        await context
+                            .read<PersonalizationCubit>()
+                            .updatePreferences(
                           prefs,
                         );
                       },
@@ -102,7 +144,7 @@ class _PersonalizationViewState extends State<_PersonalizationView> {
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Save'),
+                    : Text(context.t.save),
               );
             },
           ),
@@ -129,29 +171,19 @@ class _PersonalizationViewState extends State<_PersonalizationView> {
                   state.preferences!.preferredName ?? '';
               _preferredToneController.text =
                   state.preferences!.preferredTone ?? '';
-              _preferredLanguageController.text =
-                  state.preferences!.preferredLanguage ?? '';
 
               setState(() {
                 _streamResponse = state.preferences!.streamResponse ?? true;
                 _hapticFeedback = state.preferences!.hapticFeedback ?? true;
-                if (state.preferences!.themeMode != null) {
-                  _themeMode = state.preferences!.themeMode!;
-                }
-                _defaultModel = state.preferences!.model;
+                _preferredLanguage = _normalizePreferredLanguage(
+                  state.preferences!.preferredLanguage,
+                );
               });
 
-              // Sync with global ThemeCubit only if the theme is explicitly provided by the server
-              if (state.preferences!.themeMode != null) {
-                final themeCubit = context.read<ThemeCubit>();
-                if (state.preferences!.themeMode == 'light') {
-                  themeCubit.light();
-                } else if (state.preferences!.themeMode == 'dark') {
-                  themeCubit.dark();
-                } else if (state.preferences!.themeMode == 'system') {
-                  themeCubit.system();
-                }
-              }
+              final localeCode = _preferredLanguage == 'Khmer' ? 'km' : 'en';
+              context.read<SettingsCubit>().setLocaleCode(localeCode);
+              _lastSyncedPreferredName = _preferredNameController.text.trim();
+              _lastSyncedPreferredLanguage = _preferredLanguage;
             }
           },
           builder: (context, state) {
@@ -167,39 +199,69 @@ class _PersonalizationViewState extends State<_PersonalizationView> {
               children: [
                 _buildSectionCard(
                   context,
-                  title: 'AI Persona',
+                  title: context.t.tr('AI Persona', 'បុគ្គលិកលក្ខណៈ AI'),
                   child: Column(
                     children: [
                       TextField(
                         controller: _preferredNameController,
-                        decoration: const InputDecoration(
-                          labelText: 'Preferred Name',
-                          hintText: 'How should the AI address you?',
+                        onChanged: _schedulePreferredNameSync,
+                        decoration: InputDecoration(
+                          labelText: context.t.tr('Preferred Name', 'ឈ្មោះដែលចង់ឱ្យហៅ'),
+                          hintText: context.t.tr(
+                            'How should the AI address you?',
+                            'តើអ្នកចង់ឱ្យ AI ហៅអ្នកដូចម្តេច?',
+                          ),
                         ),
                       ),
                       const SizedBox(height: 16),
                       TextField(
                         controller: _preferredToneController,
-                        decoration: const InputDecoration(
-                          labelText: 'Preferred Tone',
-                          hintText: 'e.g., Friendly, Professional, Concise',
+                        decoration: InputDecoration(
+                          labelText: context.t.tr('Preferred Tone', 'សម្លេងដែលចង់បាន'),
+                          hintText: context.t.tr(
+                            'e.g., Friendly, Professional, Concise',
+                            'ឧ. មិត្តភាព វិជ្ជាជីវៈ ខ្លីច្បាស់',
+                          ),
                         ),
                       ),
                       const SizedBox(height: 16),
-                      TextField(
-                        controller: _preferredLanguageController,
-                        decoration: const InputDecoration(
-                          labelText: 'Preferred Language',
-                          hintText: 'e.g., English, Thai, etc.',
+                      DropdownButtonFormField<String>(
+                        value: _preferredLanguage,
+                        decoration: InputDecoration(
+                          labelText: context.t.tr(
+                            'Preferred Language',
+                            'ភាសាដែលចង់បាន',
+                          ),
                         ),
+                        items: [
+                          DropdownMenuItem(
+                            value: 'English',
+                            child: Text(context.t.english),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Khmer',
+                            child: Text(context.t.khmer),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setState(() {
+                            _preferredLanguage = value;
+                          });
+                          final localeCode = value == 'Khmer' ? 'km' : 'en';
+                          context.read<SettingsCubit>().setLocaleCode(localeCode);
+                          _syncPreferredLanguage(value);
+                        },
                       ),
                       const SizedBox(height: 16),
                       TextField(
                         controller: _systemInstructionsController,
-                        decoration: const InputDecoration(
-                          labelText: 'System Instructions',
-                          hintText:
-                              'How should the AI behave? (e.g., "Be concise", "Act like a pirate")',
+                        decoration: InputDecoration(
+                          labelText: context.t.tr('System Instructions', 'សេចក្តីណែនាំប្រព័ន្ធ'),
+                          hintText: context.t.tr(
+                            'How should the AI behave? (e.g., "Be concise", "Act like a pirate")',
+                            'AI គួរតែឆ្លើយដូចម្តេច? (ឧ. "ឆ្លើយខ្លីៗ", "និយាយបែបអ្នកជើងទឹក")',
+                          ),
                           alignLabelWithHint: true,
                         ),
                         maxLines: 4,
@@ -210,14 +272,17 @@ class _PersonalizationViewState extends State<_PersonalizationView> {
                 const SizedBox(height: 14),
                 _buildSectionCard(
                   context,
-                  title: 'Chat Experience',
+                  title: context.t.tr('Chat Experience', 'បទពិសោធន៍ជជែក'),
                   child: Column(
                     children: [
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: const Text('Stream Responses'),
-                        subtitle: const Text(
-                          'Type out messages as they generate',
+                        title: Text(context.t.tr('Stream Responses', 'បង្ហាញចម្លើយជាបន្តបន្ទាប់')),
+                        subtitle: Text(
+                          context.t.tr(
+                            'Type out messages as they generate',
+                            'បង្ហាញអក្សរតាមពេលកំពុងបង្កើតចម្លើយ',
+                          ),
                         ),
                         value: _streamResponse,
                         onChanged: (val) =>
@@ -225,8 +290,10 @@ class _PersonalizationViewState extends State<_PersonalizationView> {
                       ),
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: const Text('Haptic Feedback'),
-                        subtitle: const Text('Vibrate on interactions'),
+                        title: Text(context.t.tr('Haptic Feedback', 'រំញ័រពេលប៉ះ')),
+                        subtitle: Text(
+                          context.t.tr('Vibrate on interactions', 'រំញ័រពេលធ្វើអន្តរកម្ម'),
+                        ),
                         value: _hapticFeedback,
                         onChanged: (val) =>
                             setState(() => _hapticFeedback = val),
@@ -235,45 +302,6 @@ class _PersonalizationViewState extends State<_PersonalizationView> {
                   ),
                 ),
                 const SizedBox(height: 14),
-                _buildSectionCard(
-                  context,
-                  title: 'Appearance',
-                  child: SegmentedButton<String>(
-                    segments: const [
-                      ButtonSegment(
-                        value: 'system',
-                        label: Text('System'),
-                        icon: Icon(Icons.brightness_auto),
-                      ),
-                      ButtonSegment(
-                        value: 'light',
-                        label: Text('Light'),
-                        icon: Icon(Icons.light_mode),
-                      ),
-                      ButtonSegment(
-                        value: 'dark',
-                        label: Text('Dark'),
-                        icon: Icon(Icons.dark_mode),
-                      ),
-                    ],
-                    selected: {_themeMode},
-                    onSelectionChanged: (Set<String> newSelection) {
-                      final newMode = newSelection.first;
-                      setState(() {
-                        _themeMode = newMode;
-                      });
-                      // Immediate feedback
-                      final themeCubit = context.read<ThemeCubit>();
-                      if (newMode == 'light') {
-                        themeCubit.light();
-                      } else if (newMode == 'dark') {
-                        themeCubit.dark();
-                      } else {
-                        themeCubit.system();
-                      }
-                    },
-                  ),
-                ),
               ],
             );
           },

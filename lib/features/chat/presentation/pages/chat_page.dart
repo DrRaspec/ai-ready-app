@@ -28,10 +28,12 @@ import 'package:ai_chat_bot/core/routers/route_names.dart';
 import 'package:ai_chat_bot/features/chat/presentation/widgets/chat_drawer.dart';
 import 'package:ai_chat_bot/core/theme/app_colors.dart';
 import 'package:ai_chat_bot/features/chat/data/models/conversation.dart';
+import 'package:ai_chat_bot/features/chat/data/models/chat_mode.dart';
 import 'package:ai_chat_bot/features/bookmarks/presentation/bloc/bookmarks_cubit.dart';
 import 'package:ai_chat_bot/features/bookmarks/presentation/bloc/bookmarks_state.dart';
 import 'package:shadow_log/shadow_log.dart';
 import 'package:flutter_highlighter/flutter_highlighter.dart';
+import 'package:ai_chat_bot/core/localization/app_text.dart';
 
 class ChatPage extends StatefulWidget {
   final String? conversationId;
@@ -46,6 +48,7 @@ class _ChatPageState extends State<ChatPage> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   String? _selectedModel;
+  bool _isWideDrawerOpen = true;
 
   // Voice Recording
   bool _isListening = false;
@@ -121,8 +124,13 @@ class _ChatPageState extends State<ChatPage> {
         _showPermissionDialog();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Microphone permission required for voice'),
+          SnackBar(
+            content: Text(
+              context.t.tr(
+                'Microphone permission required for voice',
+                'តម្រូវឱ្យអនុញ្ញាតមីក្រូហ្វូនសម្រាប់សំឡេង',
+              ),
+            ),
           ),
         );
       }
@@ -134,21 +142,24 @@ class _ChatPageState extends State<ChatPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Permission Required'),
-        content: const Text(
-          'Microphone access is needed for voice features. Please enable it in settings.',
+        title: Text(context.t.tr('Permission Required', 'តម្រូវឱ្យមានការអនុញ្ញាត')),
+        content: Text(
+          context.t.tr(
+            'Microphone access is needed for voice features. Please enable it in settings.',
+            'ត្រូវការចូលប្រើមីក្រូហ្វូនសម្រាប់មុខងារសំឡេង។ សូមបើកនៅក្នុងការកំណត់។',
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(context.t.cancel),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               openAppSettings();
             },
-            child: const Text('Open Settings'),
+            child: Text(context.t.tr('Open Settings', 'បើកការកំណត់')),
           ),
         ],
       ),
@@ -175,12 +186,20 @@ class _ChatPageState extends State<ChatPage> {
 
             // Reduce spam during init
             if (_isListening) {
-              String errorMessage = 'Error: ${e.errorMsg}';
+              String errorMessage = context.t.tr(
+                'Error: ${e.errorMsg}',
+                'កំហុស: ${e.errorMsg}',
+              );
               if (e.errorMsg == 'error_listen_failed') {
-                errorMessage =
-                    'Microphone unavailable. Are you on a simulator?';
+                errorMessage = context.t.tr(
+                  'Microphone unavailable. Are you on a simulator?',
+                  'មិនអាចប្រើមីក្រូហ្វូនបាន។ តើអ្នកកំពុងប្រើ Simulator មែនទេ?',
+                );
               } else if (e.errorMsg == 'error_no_match') {
-                errorMessage = 'No speech detected. Please try again.';
+                errorMessage = context.t.tr(
+                  'No speech detected. Please try again.',
+                  'មិនបានរកឃើញសំឡេង។ សូមសាកម្តងទៀត។',
+                );
               }
 
               ScaffoldMessenger.of(
@@ -302,9 +321,12 @@ class _ChatPageState extends State<ChatPage> {
         if (!mounted) return;
         if (!_speechEnabled) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text(
-                'Speech recognition not available. Check permissions.',
+                context.t.tr(
+                  'Speech recognition not available. Check permissions.',
+                  'មិនមានមុខងារស្គាល់សំឡេង។ សូមពិនិត្យការអនុញ្ញាត។',
+                ),
               ),
             ),
           );
@@ -362,7 +384,11 @@ class _ChatPageState extends State<ChatPage> {
       if (mounted) {
         context.read<ChatBloc>().add(AttachImage(file.path));
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Image pasted from clipboard')),
+          SnackBar(
+            content: Text(
+              context.t.tr('Image pasted from clipboard', 'បានបិទភ្ជាប់រូបភាពពី clipboard'),
+            ),
+          ),
         );
       }
     }
@@ -391,12 +417,29 @@ class _ChatPageState extends State<ChatPage> {
               return Scaffold(
                 body: Row(
                   children: [
-                    const SizedBox(width: 300, child: ChatDrawer()),
-                    VerticalDivider(width: 1, color: theme.dividerColor),
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
+                      width: _isWideDrawerOpen ? 300 : 0,
+                      child: _isWideDrawerOpen ? const ChatDrawer() : null,
+                    ),
+                    if (_isWideDrawerOpen)
+                      VerticalDivider(width: 1, color: theme.dividerColor),
                     Expanded(
                       child: Scaffold(
                         extendBodyBehindAppBar: true,
-                        appBar: _buildAppBar(context, theme, showMenu: false),
+                        appBar: _buildAppBar(
+                          context,
+                          theme,
+                          showMenu: false,
+                          showWideDrawerToggle: true,
+                          isWideDrawerOpen: _isWideDrawerOpen,
+                          onWideDrawerToggle: () {
+                            setState(() {
+                              _isWideDrawerOpen = !_isWideDrawerOpen;
+                            });
+                          },
+                        ),
                         body: _buildChatBody(context, theme),
                       ),
                     ),
@@ -408,7 +451,12 @@ class _ChatPageState extends State<ChatPage> {
             return Scaffold(
               drawer: const ChatDrawer(),
               extendBodyBehindAppBar: true,
-              appBar: _buildAppBar(context, theme, showMenu: true),
+              appBar: _buildAppBar(
+                context,
+                theme,
+                showMenu: true,
+                showWideDrawerToggle: false,
+              ),
               body: _buildChatBody(context, theme),
             );
           },
@@ -421,6 +469,9 @@ class _ChatPageState extends State<ChatPage> {
     BuildContext context,
     ThemeData theme, {
     required bool showMenu,
+    bool showWideDrawerToggle = false,
+    bool isWideDrawerOpen = false,
+    VoidCallback? onWideDrawerToggle,
   }) {
     final colorScheme = theme.colorScheme;
     return AppBar(
@@ -431,7 +482,16 @@ class _ChatPageState extends State<ChatPage> {
                 onPressed: () => Scaffold.of(context).openDrawer(),
               ),
             )
-          : null,
+          : (showWideDrawerToggle
+                ? IconButton(
+                    icon: Icon(
+                      isWideDrawerOpen
+                          ? Icons.menu_open_rounded
+                          : Icons.menu_rounded,
+                    ),
+                    onPressed: onWideDrawerToggle,
+                  )
+                : null),
       automaticallyImplyLeading:
           false, // Don't show back button automatically if menu is hidden
       title: BlocBuilder<ChatBloc, ChatState>(
@@ -440,7 +500,7 @@ class _ChatPageState extends State<ChatPage> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Text(
-                'AI Chat',
+                context.t.tr('AI Chat', 'ជជែក AI'),
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -615,12 +675,12 @@ class _ChatPageState extends State<ChatPage> {
                       ),
                       const SizedBox(height: 24),
                       Text(
-                        state.chatMode?.label ?? 'How can I help you today?',
+                        _localizedEmptyTitle(state.chatMode),
                         style: theme.textTheme.titleLarge,
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        state.chatMode?.systemPrompt ?? 'Ask me anything...',
+                        _localizedEmptySubtitle(state.chatMode),
                         textAlign: TextAlign.center,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
@@ -790,10 +850,10 @@ class _ChatPageState extends State<ChatPage> {
                       ),
                       child: TextField(
                         controller: _messageController,
-                        decoration: const InputDecoration(
-                          hintText: 'Message...',
+                        decoration: InputDecoration(
+                          hintText: context.t.tr('Message...', 'សារ...'),
                           border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(
+                          contentPadding: const EdgeInsets.symmetric(
                             horizontal: 18,
                             vertical: 12,
                           ),
@@ -856,6 +916,59 @@ class _ChatPageState extends State<ChatPage> {
         ),
       ],
     );
+  }
+
+  String _localizedEmptyTitle(ChatMode? mode) {
+    switch (mode?.id) {
+      case 'general':
+        return context.t.tr('General Assistant', 'ជំនួយការទូទៅ');
+      case 'coding':
+        return context.t.tr('Coding Wizard', 'អ្នកជំនាញកូដ');
+      case 'creative':
+        return context.t.tr('Creative Writer', 'អ្នកនិពន្ធច្នៃប្រឌិត');
+      case 'concise':
+        return context.t.tr('Concise', 'ខ្លីច្បាស់');
+      case 'image_generation':
+        return context.t.tr('Image Generator', 'បង្កើតរូបភាព');
+      case 'image_editing':
+        return context.t.tr('Image Editor', 'កែរូបភាព');
+      default:
+        return context.t.tr('How can I help you today?', 'ថ្ងៃនេះ ខ្ញុំអាចជួយអ្នកអ្វីបាន?');
+    }
+  }
+
+  String _localizedEmptySubtitle(ChatMode? mode) {
+    switch (mode?.id) {
+      case 'general':
+        return context.t.tr('You are a helpful AI assistant.', 'អ្នកជាជំនួយការ AI ដែលមានប្រយោជន៍។');
+      case 'coding':
+        return context.t.tr(
+          'You are an expert software engineer. Provide clean, efficient, and well-documented code.',
+          'អ្នកជាវិស្វករសូហ្វវែរជំនាញ។ សូមផ្តល់កូដស្អាត មានប្រសិទ្ធភាព និងមានឯកសារពន្យល់ល្អ។',
+        );
+      case 'creative':
+        return context.t.tr(
+          'You are a creative writer. Engage in storytelling and imaginative responses.',
+          'អ្នកជាអ្នកនិពន្ធច្នៃប្រឌិត។ សូមឆ្លើយតបបែបរឿងនិទាន និងមានការស្រមើស្រមៃ។',
+        );
+      case 'concise':
+        return context.t.tr(
+          'Be extremely concise. Answer in as few words as possible.',
+          'សូមឆ្លើយឱ្យខ្លីបំផុត។ ប្រើពាក្យតិចបំផុតតាមដែលអាចធ្វើបាន។',
+        );
+      case 'image_generation':
+        return context.t.tr(
+          'Describe the image you want to generate.',
+          'ពិពណ៌នារូបភាពដែលអ្នកចង់បង្កើត។',
+        );
+      case 'image_editing':
+        return context.t.tr(
+          'Describe the edits you want to make to the attached image.',
+          'ពិពណ៌នាការកែប្រែដែលអ្នកចង់ធ្វើលើរូបភាពដែលបានភ្ជាប់។',
+        );
+      default:
+        return context.t.tr('Ask me anything...', 'សួរអ្វីក៏បាន...');
+    }
   }
 }
 
@@ -996,7 +1109,9 @@ class _CodeBlockWithCopyState extends State<_CodeBlockWithCopy> {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          _copied ? 'Copied!' : 'Copy',
+                          _copied
+                              ? context.t.tr('Copied!', 'បានចម្លង!')
+                              : context.t.tr('Copy', 'ចម្លង'),
                           style: TextStyle(
                             color: _copied ? Colors.green : textColor,
                             fontSize: 12,
@@ -1134,9 +1249,12 @@ class _MessageBubble extends StatelessWidget {
                       } else {
                         // Placeholder for network download
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
+                          SnackBar(
                             content: Text(
-                              'Downloading remote images not fully implemented yet',
+                              context.t.tr(
+                                'Downloading remote images not fully implemented yet',
+                                'ការទាញយករូបភាពពីអ៊ីនធឺណិតមិនទាន់គាំទ្រពេញលេញនៅឡើយទេ',
+                              ),
                             ),
                           ),
                         );
@@ -1145,8 +1263,10 @@ class _MessageBubble extends StatelessWidget {
                     }
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Image saved to Gallery!'),
+                        SnackBar(
+                          content: Text(
+                            context.t.tr('Image saved to Gallery!', 'បានរក្សាទុករូបភាពទៅ Gallery!'),
+                          ),
                         ),
                       );
                     }
@@ -1154,13 +1274,17 @@ class _MessageBubble extends StatelessWidget {
                     ShadowLog.e('Save Error: $e');
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Failed to save: $e')),
+                        SnackBar(
+                          content: Text(
+                            context.t.tr('Failed to save: $e', 'រក្សាទុកបរាជ័យ: $e'),
+                          ),
+                        ),
                       );
                     }
                   }
                 },
                 icon: const Icon(Icons.download_rounded),
-                label: const Text('Save to Gallery'),
+                label: Text(context.t.tr('Save to Gallery', 'រក្សាទុកទៅ Gallery')),
               ),
             ),
           ],
@@ -1376,8 +1500,10 @@ class _MessageBubble extends StatelessWidget {
                     HapticFeedback.selectionClick();
                     Clipboard.setData(ClipboardData(text: message.content));
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Message copied'),
+                      SnackBar(
+                        content: Text(
+                          context.t.tr('Message copied', 'បានចម្លងសារ'),
+                        ),
                         duration: Duration(seconds: 1),
                       ),
                     );
@@ -1432,8 +1558,14 @@ class _MessageBubble extends StatelessWidget {
                           SnackBar(
                             content: Text(
                               isBookmarked
-                                  ? 'Bookmark removed'
-                                  : 'Message bookmarked',
+                                  ? context.t.tr(
+                                      'Bookmark removed',
+                                      'បានដកចំណាំចេញ',
+                                    )
+                                  : context.t.tr(
+                                      'Message bookmarked',
+                                      'បានរក្សាទុកសារជាចំណាំ',
+                                    ),
                             ),
                             duration: const Duration(seconds: 1),
                           ),
@@ -1492,7 +1624,7 @@ void _showMessageOptions(BuildContext context, Message message) {
           if (message.isUser)
             ListTile(
               leading: const Icon(Icons.edit),
-              title: const Text('Edit Message'),
+              title: Text(context.t.tr('Edit Message', 'កែសម្រួលសារ')),
               onTap: () {
                 Navigator.pop(context); // Close sheet
                 _showEditDialog(context, message);
@@ -1501,7 +1633,9 @@ void _showMessageOptions(BuildContext context, Message message) {
           if (!message.isUser)
             ListTile(
               leading: const Icon(Icons.refresh),
-              title: const Text('Regenerate Response'),
+              title: Text(
+                context.t.tr('Regenerate Response', 'បង្កើតចម្លើយឡើងវិញ'),
+              ),
               onTap: () {
                 Navigator.pop(context); // Close sheet
                 // Need conversationId. Assuming it's in context/state.
@@ -1519,12 +1653,19 @@ void _showMessageOptions(BuildContext context, Message message) {
             ),
           ListTile(
             leading: const Icon(Icons.copy),
-            title: const Text('Copy Message'),
+            title: Text(context.t.tr('Copy Message', 'ចម្លងសារ')),
             onTap: () {
               Navigator.pop(context); // Close sheet
               Clipboard.setData(ClipboardData(text: message.content));
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Message copied to clipboard')),
+                SnackBar(
+                  content: Text(
+                    context.t.tr(
+                      'Message copied to clipboard',
+                      'បានចម្លងសារទៅ clipboard',
+                    ),
+                  ),
+                ),
               );
             },
           ),
@@ -1543,7 +1684,9 @@ void _showMessageOptions(BuildContext context, Message message) {
                       : null,
                 ),
                 title: Text(
-                  isBookmarked ? 'Remove Bookmark' : 'Bookmark Message',
+                  isBookmarked
+                      ? context.t.tr('Remove Bookmark', 'ដកចំណាំចេញ')
+                      : context.t.tr('Bookmark Message', 'រក្សាទុកសារជាចំណាំ'),
                 ),
                 onTap: () {
                   Navigator.pop(context); // Close sheet
@@ -1568,8 +1711,11 @@ void _showMessageOptions(BuildContext context, Message message) {
                     SnackBar(
                       content: Text(
                         isBookmarked
-                            ? 'Bookmark removed'
-                            : 'Message bookmarked',
+                            ? context.t.tr('Bookmark removed', 'បានដកចំណាំចេញ')
+                            : context.t.tr(
+                                'Message bookmarked',
+                                'បានរក្សាទុកសារជាចំណាំ',
+                              ),
                       ),
                     ),
                   );
@@ -1588,7 +1734,7 @@ void _showEditDialog(BuildContext context, Message message) {
   showDialog(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text('Edit Message'),
+      title: Text(context.t.tr('Edit Message', 'កែសម្រួលសារ')),
       content: TextField(
         controller: controller,
         maxLines: 5,
@@ -1598,7 +1744,7 @@ void _showEditDialog(BuildContext context, Message message) {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(context.t.cancel),
         ),
         TextButton(
           onPressed: () {
@@ -1609,7 +1755,7 @@ void _showEditDialog(BuildContext context, Message message) {
               Navigator.pop(context);
             }
           },
-          child: const Text('Save'),
+          child: Text(context.t.save),
         ),
       ],
     ),

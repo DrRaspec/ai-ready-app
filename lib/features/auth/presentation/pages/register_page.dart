@@ -1,3 +1,4 @@
+import 'package:ai_chat_bot/core/localization/app_text.dart';
 import 'package:ai_chat_bot/core/routers/route_names.dart';
 import 'package:ai_chat_bot/core/widgets/app_text_field.dart';
 import 'package:ai_chat_bot/features/auth/data/register_request_data.dart';
@@ -213,7 +214,7 @@ class _RegisterPageState extends State<RegisterPage>
                                 ),
                                 const SizedBox(height: 24),
                                 Text(
-                                  'Create Account',
+                                  context.t.createAccount,
                                   style: theme.textTheme.displaySmall?.copyWith(
                                     fontWeight: FontWeight.bold,
                                     color: colorScheme.onSurface,
@@ -222,7 +223,7 @@ class _RegisterPageState extends State<RegisterPage>
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Join us to start chatting',
+                                  context.t.joinToStartChatting,
                                   style: theme.textTheme.bodyLarge?.copyWith(
                                     color: colorScheme.onSurfaceVariant,
                                   ),
@@ -244,7 +245,7 @@ class _RegisterPageState extends State<RegisterPage>
                                                 controller:
                                                     _firstNameController,
                                                 focusNode: _firstNameFocusNode,
-                                                hintText: 'First Name',
+                                                hintText: context.t.firstName,
                                                 keyboardType:
                                                     TextInputType.name,
                                                 textInputAction:
@@ -253,7 +254,7 @@ class _RegisterPageState extends State<RegisterPage>
                                                 validator: (value) {
                                                   if (value == null ||
                                                       value.trim().isEmpty) {
-                                                    return 'Required';
+                                                    return context.t.requiredField;
                                                   }
                                                   return null;
                                                 },
@@ -270,7 +271,7 @@ class _RegisterPageState extends State<RegisterPage>
                                               child: AppTextField(
                                                 controller: _lastNameController,
                                                 focusNode: _lastNameFocusNode,
-                                                hintText: 'Last Name',
+                                                hintText: context.t.lastName,
                                                 keyboardType:
                                                     TextInputType.name,
                                                 textInputAction:
@@ -279,7 +280,7 @@ class _RegisterPageState extends State<RegisterPage>
                                                 validator: (value) {
                                                   if (value == null ||
                                                       value.trim().isEmpty) {
-                                                    return 'Required';
+                                                    return context.t.requiredField;
                                                   }
                                                   return null;
                                                 },
@@ -297,7 +298,7 @@ class _RegisterPageState extends State<RegisterPage>
                                         child: AppTextField(
                                           controller: _emailController,
                                           focusNode: _emailFocusNode,
-                                          hintText: 'Email address',
+                                          hintText: context.t.emailAddress,
                                           keyboardType:
                                               TextInputType.emailAddress,
                                           textInputAction: TextInputAction.next,
@@ -308,12 +309,13 @@ class _RegisterPageState extends State<RegisterPage>
                                           validator: (value) {
                                             if (value == null ||
                                                 value.trim().isEmpty) {
-                                              return 'Please enter your email';
+                                              return context.t.pleaseEnterEmail;
                                             }
                                             if (!_kEmailRegex.hasMatch(
                                               value.trim(),
                                             )) {
-                                              return 'Please enter a valid email';
+                                              return context.t
+                                                  .pleaseEnterValidEmail;
                                             }
                                             return null;
                                           },
@@ -327,7 +329,7 @@ class _RegisterPageState extends State<RegisterPage>
                                         child: AppTextField(
                                           controller: _passwordController,
                                           focusNode: _passwordFocusNode,
-                                          hintText: 'Password',
+                                          hintText: context.t.password,
                                           obscureText: _obscurePassword,
                                           textInputAction: TextInputAction.next,
                                           enabled: !isLoading,
@@ -337,10 +339,11 @@ class _RegisterPageState extends State<RegisterPage>
                                           validator: (value) {
                                             if (value == null ||
                                                 value.isEmpty) {
-                                              return 'Please enter a password';
+                                              return context.t
+                                                  .pleaseEnterPassword;
                                             }
                                             if (value.length < 8) {
-                                              return 'Min 8 characters';
+                                              return context.t.minEightCharacters;
                                             }
                                             return null;
                                           },
@@ -372,7 +375,7 @@ class _RegisterPageState extends State<RegisterPage>
                                           controller:
                                               _confirmPasswordController,
                                           focusNode: _confirmPasswordFocusNode,
-                                          hintText: 'Confirm Password',
+                                          hintText: context.t.confirmPassword,
                                           obscureText: _obscureConfirmPassword,
                                           textInputAction: TextInputAction.done,
                                           enabled: !isLoading,
@@ -382,11 +385,13 @@ class _RegisterPageState extends State<RegisterPage>
                                           validator: (value) {
                                             if (value == null ||
                                                 value.isEmpty) {
-                                              return 'Please confirm password';
+                                              return context.t
+                                                  .pleaseConfirmPassword;
                                             }
                                             if (value !=
                                                 _passwordController.text) {
-                                              return 'Passwords do not match';
+                                              return context.t
+                                                  .passwordsDoNotMatch;
                                             }
                                             return null;
                                           },
@@ -467,13 +472,13 @@ class _RegisterPageState extends State<RegisterPage>
                                                               .onPrimary,
                                                         ),
                                                   )
-                                                : const Padding(
-                                                    key: ValueKey('label'),
-                                                    padding: EdgeInsets.all(
+                                                : Padding(
+                                                    key: const ValueKey('label'),
+                                                    padding: const EdgeInsets.all(
                                                       16.0,
                                                     ),
                                                     child: Text(
-                                                      'Create Account',
+                                                      context.t.createAccount,
                                                     ),
                                                   ),
                                           ),
@@ -487,16 +492,17 @@ class _RegisterPageState extends State<RegisterPage>
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Text(
-                                      'Already have an account? ',
+                                      context.t.alreadyHaveAccount,
                                       style: TextStyle(
                                         color: colorScheme.onSurfaceVariant,
                                       ),
                                     ),
+                                    const SizedBox(width: 4),
                                     TextButton(
                                       onPressed: isLoading
                                           ? null
                                           : () => context.pop(),
-                                      child: const Text('Sign In'),
+                                      child: Text(context.t.signIn),
                                     ),
                                   ],
                                 ),

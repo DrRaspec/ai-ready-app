@@ -1,3 +1,4 @@
+import 'package:ai_chat_bot/core/localization/app_text.dart';
 import 'package:ai_chat_bot/core/routers/route_names.dart';
 import 'package:ai_chat_bot/core/widgets/app_text_field.dart';
 import 'package:ai_chat_bot/features/auth/data/login_request_data.dart';
@@ -89,17 +90,20 @@ class _LoginPageState extends State<LoginPage>
     ColorScheme colorScheme,
     bool isLoading, {
     required bool isWideLayout,
+    required bool centerContent,
   }) {
-    final textAlign = isWideLayout ? TextAlign.left : TextAlign.center;
-    final crossAxis = isWideLayout
+    final alignStart = isWideLayout && !centerContent;
+    final textAlign = alignStart ? TextAlign.left : TextAlign.center;
+    final crossAxis = alignStart
         ? CrossAxisAlignment.start
         : CrossAxisAlignment.center;
 
     return Column(
       crossAxisAlignment: crossAxis,
       children: [
-        if (isWideLayout) const SizedBox(height: 20),
-        Center(
+        if (alignStart) const SizedBox(height: 20),
+        Align(
+          alignment: alignStart ? Alignment.centerLeft : Alignment.center,
           child: AnimatedScale(
             duration: _kAnimDuration,
             scale: isLoading ? 0.96 : 1,
@@ -122,7 +126,7 @@ class _LoginPageState extends State<LoginPage>
         ),
         const SizedBox(height: 32),
         Text(
-          'Welcome Back',
+          context.t.welcomeBack,
           style: theme.textTheme.displaySmall?.copyWith(
             fontWeight: FontWeight.bold,
             color: colorScheme.onSurface,
@@ -131,7 +135,7 @@ class _LoginPageState extends State<LoginPage>
         ),
         const SizedBox(height: 8),
         Text(
-          'Sign in to your account',
+          context.t.signInToYourAccount,
           style: theme.textTheme.bodyLarge?.copyWith(
             color: colorScheme.onSurfaceVariant,
           ),
@@ -158,19 +162,19 @@ class _LoginPageState extends State<LoginPage>
                 child: AppTextField(
                   controller: _emailController,
                   focusNode: _emailFocusNode,
-                  hintText: 'Email address',
+                  hintText: context.t.emailAddress,
                   keyboardType: TextInputType.emailAddress,
                   textInputAction: TextInputAction.next,
                   enabled: !isLoading,
                   prefixIcon: const Icon(Icons.email_outlined),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'Please enter your email';
+                      return context.t.pleaseEnterEmail;
                     }
                     final email = value.trim();
                     final isEmailValid = _kEmailRegex.hasMatch(email);
                     if (!isEmailValid) {
-                      return 'Please enter a valid email';
+                      return context.t.pleaseEnterValidEmail;
                     }
                     return null;
                   },
@@ -182,17 +186,17 @@ class _LoginPageState extends State<LoginPage>
                 child: AppTextField(
                   controller: _passwordController,
                   focusNode: _passwordFocusNode,
-                  hintText: 'Password',
+                  hintText: context.t.password,
                   obscureText: _obscurePassword,
                   textInputAction: TextInputAction.done,
                   enabled: !isLoading,
                   prefixIcon: const Icon(Icons.lock_outline),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter your password';
+                      return context.t.pleaseEnterPassword;
                     }
                     if (value.length < 6) {
-                      return 'Password must be at least 6 characters';
+                      return context.t.passwordAtLeastSix;
                     }
                     return null;
                   },
@@ -225,7 +229,7 @@ class _LoginPageState extends State<LoginPage>
           alignment: Alignment.centerRight,
           child: TextButton(
             onPressed: isLoading ? null : () {},
-            child: const Text('Forgot Password?'),
+            child: Text(context.t.forgotPassword),
           ),
         ),
         const SizedBox(height: 24),
@@ -262,10 +266,10 @@ class _LoginPageState extends State<LoginPage>
                               color: colorScheme.onPrimary,
                             ),
                           )
-                        : const Padding(
-                            key: ValueKey('label'),
-                            padding: EdgeInsets.all(16),
-                            child: Text('Login'),
+                        : Padding(
+                            key: const ValueKey('label'),
+                            padding: const EdgeInsets.all(16),
+                            child: Text(context.t.login),
                           ),
                   ),
                 ),
@@ -280,7 +284,7 @@ class _LoginPageState extends State<LoginPage>
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
-                'Or continue with',
+                context.t.orContinueWith,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
@@ -300,9 +304,13 @@ class _LoginPageState extends State<LoginPage>
               onTap: isLoading
                   ? () {}
                   : () => context.read<AuthBloc>().add(GoogleSignInRequested()),
-              label: 'Google',
+              label: context.t.tr('Google', 'ហ្គូហ្គល'),
             ),
-            _SocialButton(icon: Icons.apple, onTap: () {}, label: 'Apple'),
+            _SocialButton(
+              icon: Icons.apple,
+              onTap: () {},
+              label: context.t.tr('Apple', 'អាប់ផែល'),
+            ),
           ],
         ),
         const SizedBox(height: 48),
@@ -310,14 +318,14 @@ class _LoginPageState extends State<LoginPage>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              "Don't have an account?",
+              context.t.dontHaveAccount,
               style: TextStyle(color: colorScheme.onSurfaceVariant),
             ),
             TextButton(
               onPressed: isLoading
                   ? null
                   : () => context.pushNamed(RouteNames.register),
-              child: const Text('Sign Up'),
+              child: Text(context.t.signUp),
             ),
           ],
         ),
@@ -376,6 +384,8 @@ class _LoginPageState extends State<LoginPage>
               },
               builder: (context, state) {
                 final isLoading = state is AuthLoading;
+                final centerHeaderOnWide =
+                    context.isTablet && context.isLandscape;
                 final isWideLayout =
                     context.isTablet ||
                     context.isDesktop ||
@@ -409,12 +419,14 @@ class _LoginPageState extends State<LoginPage>
                         autovalidateMode: _autovalidateMode,
                         child: isWideLayout
                             ? Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                                crossAxisAlignment: centerHeaderOnWide
+                                    ? CrossAxisAlignment.center
+                                    : CrossAxisAlignment.start,
                                 children: [
                                   Expanded(
                                     child: Padding(
-                                      padding: const EdgeInsets.only(
-                                        top: 24,
+                                      padding: EdgeInsets.only(
+                                        top: centerHeaderOnWide ? 0 : 24,
                                         right: 24,
                                       ),
                                       child: _buildHeaderSection(
@@ -422,6 +434,7 @@ class _LoginPageState extends State<LoginPage>
                                         colorScheme,
                                         isLoading,
                                         isWideLayout: true,
+                                        centerContent: centerHeaderOnWide,
                                       ),
                                     ),
                                   ),
@@ -458,6 +471,7 @@ class _LoginPageState extends State<LoginPage>
                                     colorScheme,
                                     isLoading,
                                     isWideLayout: false,
+                                    centerContent: false,
                                   ),
                                   const SizedBox(height: 32),
                                   DecoratedBox(

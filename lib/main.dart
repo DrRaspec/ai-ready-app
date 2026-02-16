@@ -23,10 +23,12 @@ Future<void> main() async {
 
   // Load Settings
   final textScale = prefs.getDouble('text_scale_factor') ?? 1.0;
-  final fontFamily = prefs.getString('font_family') ?? 'Inter';
+  final fontFamily = prefs.getString('font_family') ?? 'App Default';
+  final localeCode = prefs.getString('locale_code');
   final initialSettings = SettingsState(
     textScaleFactor: textScale,
     fontFamily: fontFamily,
+    localeCode: localeCode,
   );
 
   runApp(

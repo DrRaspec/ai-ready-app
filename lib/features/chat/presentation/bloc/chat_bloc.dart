@@ -299,11 +299,11 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         modeHint: modeHint,
         conversationId: state.currentConversationId,
         folderId: state.currentFolderId,
-        forceTextChat: modeHint == 'CHAT',
+        forceTextChat: modeHint == 'CHAT' && !hasImage,
       );
 
       // --- STREAMING LOGIC ---
-      if (event.useStream && modeHint == 'CHAT') {
+      if (event.useStream && modeHint == 'CHAT' && !hasImage) {
         // Don't stream images
         // 1. Create a placeholder assistant message
         final tempAssistantId =

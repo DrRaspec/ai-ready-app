@@ -1,4 +1,5 @@
 import 'package:ai_chat_bot/features/prompts/data/prompts_data.dart';
+import 'package:ai_chat_bot/core/localization/app_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -40,7 +41,10 @@ class PromptsSheet extends StatelessWidget {
               children: [
                 Icon(Icons.auto_awesome_rounded, color: colorScheme.primary),
                 const SizedBox(width: 12),
-                Text('Quick Prompts', style: theme.textTheme.titleLarge),
+                Text(
+                  context.t.tr('Quick Prompts', 'ពាក្យបញ្ជារហ័ស'),
+                  style: theme.textTheme.titleLarge,
+                ),
               ],
             ),
           ),
@@ -107,7 +111,7 @@ class _CategorySection extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Text(
-                category.name,
+                context.t.promptCategoryName(category.name),
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -168,7 +172,7 @@ class _PromptChip extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     return Tooltip(
-      message: prompt.description,
+      message: context.t.promptDescription(prompt.description),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(20),
@@ -189,7 +193,7 @@ class _PromptChip extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                prompt.title,
+                context.t.promptTitle(prompt.title),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.w500,
                 ),

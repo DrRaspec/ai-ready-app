@@ -1,5 +1,6 @@
 import 'package:ai_chat_bot/features/bookmarks/presentation/bloc/bookmarks_cubit.dart';
 import 'package:ai_chat_bot/features/bookmarks/presentation/bloc/bookmarks_state.dart';
+import 'package:ai_chat_bot/core/localization/app_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
@@ -36,12 +37,12 @@ class _BookmarksPageState extends State<BookmarksPage> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Bookmarks'),
+        title: Text(context.t.bookmarks),
         actions: [
           if (_hasActiveFilters)
             IconButton(
               icon: const Icon(Icons.filter_alt_off_rounded),
-              tooltip: 'Clear filters',
+              tooltip: context.t.tr('Clear filters', 'សម្អាតតម្រង'),
               onPressed: () {
                 setState(() {
                   _searchQuery = '';
@@ -214,10 +215,16 @@ class _BookmarksPageState extends State<BookmarksPage> {
     }
 
     final sections = <_BookmarkSection>[
-      _BookmarkSection(title: 'Today', items: today),
-      _BookmarkSection(title: 'This Week', items: thisWeek),
-      _BookmarkSection(title: 'This Month', items: thisMonth),
-      _BookmarkSection(title: 'Earlier', items: earlier),
+      _BookmarkSection(title: context.t.tr('Today', 'ថ្ងៃនេះ'), items: today),
+      _BookmarkSection(
+        title: context.t.tr('This Week', 'សប្តាហ៍នេះ'),
+        items: thisWeek,
+      ),
+      _BookmarkSection(
+        title: context.t.tr('This Month', 'ខែនេះ'),
+        items: thisMonth,
+      ),
+      _BookmarkSection(title: context.t.tr('Earlier', 'មុននេះ'), items: earlier),
     ];
 
     return sections.where((section) => section.items.isNotEmpty).toList();
@@ -242,7 +249,7 @@ class _BookmarksPageState extends State<BookmarksPage> {
       child: Row(
         children: [
           ChoiceChip(
-            label: Text('All (${allBookmarks.length})'),
+            label: Text('${context.t.all} (${allBookmarks.length})'),
             selected: _roleFilter == _BookmarkRoleFilter.all,
             showCheckmark: false,
             onSelected: (_) {
@@ -251,7 +258,7 @@ class _BookmarksPageState extends State<BookmarksPage> {
           ),
           const SizedBox(width: 8),
           ChoiceChip(
-            label: Text('AI ($assistantCount)'),
+            label: Text('${context.t.tr('AI', 'AI')} ($assistantCount)'),
             selected: _roleFilter == _BookmarkRoleFilter.assistant,
             showCheckmark: false,
             onSelected: (_) {
@@ -260,7 +267,7 @@ class _BookmarksPageState extends State<BookmarksPage> {
           ),
           const SizedBox(width: 8),
           ChoiceChip(
-            label: Text('You ($userCount)'),
+            label: Text('${context.t.tr('You', 'អ្នក')} ($userCount)'),
             selected: _roleFilter == _BookmarkRoleFilter.user,
             showCheckmark: false,
             onSelected: (_) {
@@ -293,14 +300,22 @@ class _BookmarksPageState extends State<BookmarksPage> {
           ),
           const SizedBox(height: 24),
           Text(
-            isFiltered ? 'No matching bookmarks' : 'No bookmarks yet',
+            isFiltered
+                ? context.t.tr('No matching bookmarks', 'មិនមានចំណាំត្រូវគ្នា')
+                : context.t.tr('No bookmarks yet', 'មិនទាន់មានចំណាំ'),
             style: theme.textTheme.titleLarge,
           ),
           const SizedBox(height: 8),
           Text(
             isFiltered
-                ? 'Try changing your search or filter'
-                : 'Long-press messages in chat to bookmark them',
+                ? context.t.tr(
+                    'Try changing your search or filter',
+                    'សូមសាកផ្លាស់ប្ដូរការស្វែងរក ឬតម្រង',
+                  )
+                : context.t.tr(
+                    'Long-press messages in chat to bookmark them',
+                    'ចុចសង្កត់លើសារនៅក្នុងជជែក ដើម្បីរក្សាទុកជា​ចំណាំ',
+                  ),
             style: theme.textTheme.bodyMedium?.copyWith(
               color: colorScheme.onSurfaceVariant,
             ),
@@ -318,9 +333,9 @@ class _BookmarksPageState extends State<BookmarksPage> {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: const Text('Bookmark removed'),
+          content: Text(context.t.tr('Bookmark removed', 'បានដកចំណាំចេញ')),
           action: SnackBarAction(
-            label: 'Undo',
+            label: context.t.tr('Undo', 'មិនធ្វើ'),
             onPressed: () {
               bookmarksCubit.toggleBookmark(
                 messageId: bookmark.id,
@@ -400,7 +415,9 @@ class _BookmarkCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isAI ? 'AI Response' : 'You',
+                          isAI
+                              ? context.t.tr('AI Response', 'ចម្លើយពី AI')
+                              : context.t.tr('You', 'អ្នក'),
                           style: theme.textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -423,7 +440,7 @@ class _BookmarkCard extends StatelessWidget {
                       color: colorScheme.error,
                     ),
                     onPressed: onRemove,
-                    tooltip: 'Remove bookmark',
+                    tooltip: context.t.tr('Remove bookmark', 'ដកចំណាំចេញ'),
                   ),
                 ],
               ),
@@ -506,6 +523,10 @@ class _BookmarkSearchDelegate extends SearchDelegate<String> {
 
   @override
   Widget buildSuggestions(BuildContext context) {
-    return const Center(child: Text('Type to search bookmarks'));
+    return Center(
+      child: Text(
+        context.t.tr('Type to search bookmarks', 'វាយអក្សរដើម្បីស្វែងរកចំណាំ'),
+      ),
+    );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
+import 'package:ai_chat_bot/core/localization/app_text.dart';
 import 'package:ai_chat_bot/features/prompts/data/prompt_repository.dart';
 import 'package:ai_chat_bot/features/prompts/presentation/bloc/prompt_cubit.dart';
 import 'package:ai_chat_bot/features/prompts/presentation/bloc/prompt_state.dart';
@@ -29,10 +30,10 @@ class _PromptLibraryView extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(title: const Text('Prompt Library')),
+      appBar: AppBar(title: Text(context.t.promptLibrary)),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddPromptDialog(context),
-        label: const Text('New Prompt'),
+        label: Text(context.t.newPrompt),
         icon: const Icon(Icons.add),
       ),
       body: Container(
@@ -55,8 +56,8 @@ class _PromptLibraryView extends StatelessWidget {
                 child: ListView.builder(
                   itemCount: 5,
                   itemBuilder: (context, index) => ListTile(
-                    title: const Text('Loading Prompt...'),
-                    subtitle: const Text('Description...'),
+                    title: Text(context.t.tr('Loading Prompt...', 'កំពុងផ្ទុកពាក្យបញ្ជា...')),
+                    subtitle: Text(context.t.tr('Description...', 'ការពិពណ៌នា...')),
                   ),
                 ),
               );
@@ -76,7 +77,7 @@ class _PromptLibraryView extends StatelessWidget {
                     FilledButton(
                       onPressed: () =>
                           context.read<PromptCubit>().loadPrompts(),
-                      child: const Text('Retry'),
+                      child: Text(context.t.tr('Retry', 'សាកម្តងទៀត')),
                     ),
                   ],
                 ),
@@ -85,7 +86,7 @@ class _PromptLibraryView extends StatelessWidget {
               if (state.prompts.isEmpty) {
                 return Center(
                   child: Text(
-                    'No prompts yet. Create one!',
+                    context.t.tr('No prompts yet. Create one!', 'មិនទាន់មានពាក្យបញ្ជាទេ។ បង្កើតមួយ!'),
                     style: theme.textTheme.bodyLarge?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                     ),
@@ -112,7 +113,9 @@ class _PromptLibraryView extends StatelessWidget {
                     ),
                     child: ListTile(
                       title: Text(
-                        (prompt['name'] ?? prompt['title'] ?? 'Untitled')
+                        (prompt['name'] ??
+                                prompt['title'] ??
+                                context.t.tr('Untitled', 'គ្មានចំណងជើង'))
                             .toString(),
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
@@ -163,25 +166,25 @@ class _AddPromptDialogState extends State<_AddPromptDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('New Prompt'),
+      title: Text(context.t.newPrompt),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: _titleController,
-              decoration: const InputDecoration(
-                labelText: 'Title',
-                hintText: 'e.g., Coding Assistant',
+              decoration: InputDecoration(
+                labelText: context.t.tr('Title', 'ចំណងជើង'),
+                hintText: context.t.tr('e.g., Coding Assistant', 'ឧ. ជំនួយការកូដ'),
               ),
               textCapitalization: TextCapitalization.sentences,
             ),
             const SizedBox(height: 16),
             TextField(
               controller: _contentController,
-              decoration: const InputDecoration(
-                labelText: 'Prompt Content',
-                hintText: 'You are a helpful...',
+              decoration: InputDecoration(
+                labelText: context.t.tr('Prompt Content', 'មាតិកាពាក្យបញ្ជា'),
+                hintText: context.t.tr('You are a helpful...', 'អ្នកជាជំនួយការដែលមានប្រយោជន៍...'),
                 alignLabelWithHint: true,
               ),
               maxLines: 5,
@@ -196,7 +199,7 @@ class _AddPromptDialogState extends State<_AddPromptDialog> {
                 child: TextButton.icon(
                   onPressed: _enhancePrompt,
                   icon: const Icon(Icons.auto_awesome),
-                  label: const Text('Enhance with AI'),
+                  label: Text(context.t.tr('Enhance with AI', 'ធ្វើឱ្យប្រសើរដោយ AI')),
                 ),
               ),
           ],
@@ -205,7 +208,7 @@ class _AddPromptDialogState extends State<_AddPromptDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(context.t.cancel),
         ),
         FilledButton(
           onPressed: () {
@@ -218,7 +221,7 @@ class _AddPromptDialogState extends State<_AddPromptDialog> {
               Navigator.pop(context);
             }
           },
-          child: const Text('Save'),
+          child: Text(context.t.save),
         ),
       ],
     );
@@ -240,7 +243,13 @@ class _AddPromptDialogState extends State<_AddPromptDialog> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Failed to enhance: $e')));
+        ).showSnackBar(
+          SnackBar(
+            content: Text(
+              context.t.tr('Failed to enhance: $e', 'មិនអាចធ្វើឱ្យប្រសើរបាន: $e'),
+            ),
+          ),
+        );
       }
     } finally {
       if (mounted) {

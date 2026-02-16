@@ -45,6 +45,8 @@
 		<true/>
 		<key>NSPhotoLibraryUsageDescription</key>
 		<string>We need access to your photos to let you share them with the AI.</string>
+		<key>NSCameraUsageDescription</key>
+		<string>We need access to your camera so you can take photos to send to the AI.</string>
 		<key>NSMicrophoneUsageDescription</key>
 		<string>We need access to your microphone for voice chat.</string>
 		<key>NSSpeechRecognitionUsageDescription</key>
